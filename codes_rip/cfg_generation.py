@@ -93,7 +93,3 @@ def cfg_generation(topology):
             f.write(config)
 
     print("Configurations générées avec succès.")
-
-
-
-cfg_generation("topology.json")
