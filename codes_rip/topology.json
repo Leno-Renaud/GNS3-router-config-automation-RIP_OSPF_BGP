@@ -10,8 +10,7 @@
       "name": "R2",
       "interfaces": [
         {"name": "GigabitEthernet1/0"},
-        {"name": "GigabitEthernet2/0"},
-        {"name": "GigabitEthernet3/0"}
+        {"name": "GigabitEthernet2/0"}
       ]
     },
     {
