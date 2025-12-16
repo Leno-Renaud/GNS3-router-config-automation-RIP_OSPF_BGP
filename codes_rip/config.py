@@ -7,47 +7,42 @@ from collections import defaultdict
 with open("topology.json") as f:
     topo = json.load(f)
 
-routers = topo["routers"]
+routers_data = {r["name"]: r for r in topo["routers"]}
 links = topo["links"]
 base_net = ipaddress.ip_network(topo["ip_base"])
 
 # --- Structures internes ---
-interfaces = defaultdict(list)
+interfaces_cfg = defaultdict(list)
 rip_networks = defaultdict(set)
-iface_count = defaultdict(int)
 
 current_net = base_net
 
-# --- Calcul IP + interfaces ---
+# --- Génération IP pour chaque lien ---
 for link in links:
-    a, b = link["a"], link["b"]
+    a, a_iface_name = link["a"], link["a_iface"]
+    b, b_iface_name = link["b"], link["b_iface"]
 
     hosts = list(current_net.hosts())
     ip_a = hosts[0]
     ip_b = hosts[1]
 
-    iface_a = f"GigabitEthernet0/{iface_count[a]}"
-    iface_b = f"GigabitEthernet0/{iface_count[b]}"
-
-    iface_count[a] += 1
-    iface_count[b] += 1
-
-    interfaces[a].append({
-        "name": iface_a,
+    # Interfaces
+    interfaces_cfg[a].append({
+        "name": a_iface_name,
         "ip": str(ip_a),
         "mask": str(current_net.netmask)
     })
-
-    interfaces[b].append({
-        "name": iface_b,
+    interfaces_cfg[b].append({
+        "name": b_iface_name,
         "ip": str(ip_b),
         "mask": str(current_net.netmask)
     })
 
-    # RIP annonce le réseau connecté
+    # RIP networks
     rip_networks[a].add(str(current_net.network_address))
     rip_networks[b].add(str(current_net.network_address))
 
+    # Prochain subnet
     current_net = ipaddress.ip_network(
         int(current_net.network_address) + current_net.num_addresses
     ).supernet(new_prefix=current_net.prefixlen)
@@ -56,14 +51,14 @@ for link in links:
 template = Template(open("router_rip.j2").read())
 
 # --- Génération des configs ---
-for router in routers:
+for router_name in routers_data.keys():
     config = template.render(
-        name=router,
-        interfaces=interfaces[router],
-        rip_networks=sorted(rip_networks[router])
+        name=router_name,
+        interfaces=interfaces_cfg[router_name],
+        rip_networks=sorted(rip_networks[router_name])
     )
 
-    with open(f"{router}.cfg", "w") as f:
+    with open(f"{router_name}.cfg", "w") as f:
         f.write(config)
 
 print("Configurations générées avec succès.")
