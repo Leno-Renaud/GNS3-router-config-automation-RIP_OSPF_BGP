@@ -1,0 +1,46 @@
+{
+  "routers": [
+    {
+      "name": "R1",
+      "interfaces": [
+        {
+          "name": "GigabitEthernet1/0"
+        }
+      ]
+    },
+    {
+      "name": "R2",
+      "interfaces": [
+        {
+          "name": "GigabitEthernet1/0"
+        },
+        {
+          "name": "GigabitEthernet2/0"
+        }
+      ]
+    },
+    {
+      "name": "R3",
+      "interfaces": [
+        {
+          "name": "GigabitEthernet2/0"
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "a": "R1",
+      "a_iface": "GigabitEthernet1/0",
+      "b": "R2",
+      "b_iface": "GigabitEthernet1/0"
+    },
+    {
+      "a": "R2",
+      "a_iface": "GigabitEthernet2/0",
+      "b": "R3",
+      "b_iface": "GigabitEthernet2/0"
+    }
+  ],
+  "ipv6_base": "2001:db8::/64"
+}

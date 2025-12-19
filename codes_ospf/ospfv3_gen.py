@@ -62,6 +62,11 @@ def create_ospfv3_config(router_name, router_data, ipv6_assignments, topology):
     """
     config_lines = []
     
+    # Extract router number for Loopback and Router ID
+    router_num = ''.join(filter(str.isdigit, router_name))
+    if not router_num:
+        router_num = "1"
+    
     # 1. Basic hostname
     config_lines.append(f"hostname {router_name}")
     config_lines.append("!")
@@ -70,7 +75,21 @@ def create_ospfv3_config(router_name, router_data, ipv6_assignments, topology):
     config_lines.append("ipv6 unicast-routing")
     config_lines.append("!")
     
-    # 3. Configure interfaces with IPv6 addresses
+    # 3. Reset all interfaces to default state (critical for override)
+    config_lines.append("! Reset interfaces to default")
+    for interface in router_data["interfaces"]:
+        config_lines.append(f"default interface {interface['name']}")
+    config_lines.append("!")
+    
+    # 4. Configure Loopback0 (Loopback IPv6 address for stable routing tests)
+    config_lines.append("! Loopback configuration")
+    loopback_ipv6 = f"2001:db8:ffff::{router_num}"
+    config_lines.append("interface Loopback0")
+    config_lines.append(f" ipv6 address {loopback_ipv6}/128")
+    config_lines.append(" no shutdown")
+    config_lines.append("!")
+    
+    # 5. Configure interfaces with IPv6 addresses
     config_lines.append("! Interface configurations")
     for interface in router_data["interfaces"]:
         interface_name = interface["name"]
@@ -88,23 +107,23 @@ def create_ospfv3_config(router_name, router_data, ipv6_assignments, topology):
         
         config_lines.append("!")
     
-    # 4. OSPFv3 configuration
+    # 6. OSPFv3 configuration
     config_lines.append("! OSPFv3 configuration")
     config_lines.append("ipv6 router ospf 1")
     
     # Generate router ID from last octet (R1 -> 1.1.1.1, R2 -> 2.2.2.2, etc.)
     # Note: OSPFv3 still uses 32-bit router IDs (IPv4 format)
-    router_num = ''.join(filter(str.isdigit, router_name))
-    if router_num:
-        router_id = f"{router_num}.{router_num}.{router_num}.{router_num}"
-    else:
-        router_id = "1.1.1.1"
+    router_id = f"{router_num}.{router_num}.{router_num}.{router_num}"
     
     config_lines.append(f" router-id {router_id}")
+    config_lines.append(" passive-interface Loopback0")
     config_lines.append("!")
     
-    # 5. Enable OSPFv3 on interfaces
+    # 7. Enable OSPFv3 on interfaces
     config_lines.append("! Enable OSPFv3 on interfaces")
+    config_lines.append("interface Loopback0")
+    config_lines.append(" ipv6 ospf 1 area 0")
+    config_lines.append("!")
     for interface in router_data["interfaces"]:
         interface_name = interface["name"]
         key = (router_name, interface_name)
@@ -114,7 +133,7 @@ def create_ospfv3_config(router_name, router_data, ipv6_assignments, topology):
             config_lines.append(" ipv6 ospf 1 area 0")
             config_lines.append("!")
     
-    # 6. End with save command
+    # 8. End with save command
     config_lines.append("end")
     config_lines.append("write memory")
     
