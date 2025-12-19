@@ -1,10 +1,14 @@
 hostname {{ name }}
 
 ipv6 unicast-routing
+ipv6 cef
 
 {% for iface in interfaces %}
 interface {{ iface.name }}
+ no ipv6 address
+ ipv6 nd dad attempts 0
  ipv6 address {{ iface.ip }}/{{ iface.prefix }}
+ ipv6 enable
  no shutdown
 {% endfor %}
 

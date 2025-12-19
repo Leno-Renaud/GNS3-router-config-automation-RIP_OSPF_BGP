@@ -73,15 +73,10 @@ def create_ospfv3_config(router_name, router_data, ipv6_assignments, topology):
     
     # 2. Enable IPv6 unicast routing (required for OSPFv3)
     config_lines.append("ipv6 unicast-routing")
+    config_lines.append("ipv6 cef")
     config_lines.append("!")
     
-    # 3. Reset all interfaces to default state (critical for override)
-    config_lines.append("! Reset interfaces to default")
-    for interface in router_data["interfaces"]:
-        config_lines.append(f"default interface {interface['name']}")
-    config_lines.append("!")
-    
-    # 4. Configure Loopback0 (Loopback IPv6 address for stable routing tests)
+    # 3. Configure Loopback0 (Loopback IPv6 address for stable routing tests)
     config_lines.append("! Loopback configuration")
     loopback_ipv6 = f"2001:db8:ffff::{router_num}"
     config_lines.append("interface Loopback0")
@@ -89,7 +84,7 @@ def create_ospfv3_config(router_name, router_data, ipv6_assignments, topology):
     config_lines.append(" no shutdown")
     config_lines.append("!")
     
-    # 5. Configure interfaces with IPv6 addresses
+    # 4. Configure interfaces with IPv6 addresses
     config_lines.append("! Interface configurations")
     for interface in router_data["interfaces"]:
         interface_name = interface["name"]
@@ -99,6 +94,7 @@ def create_ospfv3_config(router_name, router_data, ipv6_assignments, topology):
         key = (router_name, interface_name)
         if key in ipv6_assignments:
             ipv6, prefix_length = ipv6_assignments[key]
+            config_lines.append(f" no ipv6 address")
             config_lines.append(f" ipv6 address {ipv6}/{prefix_length}")
             config_lines.append(" ipv6 enable")
             config_lines.append(" no shutdown")
