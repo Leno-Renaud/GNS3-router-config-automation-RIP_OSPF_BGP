@@ -1,0 +1,24 @@
+hostname {{ name }}
+
+ipv6 unicast-routing
+
+{% for iface in interfaces %}
+interface {{ iface.name }}
+ ipv6 address {{ iface.ip }}/{{ iface.prefix }}
+ no shutdown
+{% endfor %}
+
+router bgp {{ asn }}
+ bgp log-neighbor-changes
+ !
+{% for neighbor in neighbors %}
+ neighbor {{ neighbor.ip }} remote-as {{ neighbor.asn }}
+ neighbor {{ neighbor.ip }} description to_{{ neighbor.name }}
+{% endfor %}
+ !
+ address-family ipv6 unicast
+{% for neighbor in neighbors %}
+  neighbor {{ neighbor.ip }} activate
+{% endfor %}
+  redistribute connected
+ exit-address-family
