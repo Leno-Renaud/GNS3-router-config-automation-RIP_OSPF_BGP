@@ -17,7 +17,7 @@ def get_interface_name(adapter, port):
         return f"GigabitEthernet{adapter}/{port}"
 
 # --- FONCTION PRINCIPALE ---
-def extract_topology(gns3_file, ip_base="fd00::/126", output_dir=None, output_name="topology.json"):
+def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_name="topology.json"):
     """
     Extrait la topologie d'un fichier GNS3 et génère un fichier topology.json
     
