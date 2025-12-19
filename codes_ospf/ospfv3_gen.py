@@ -20,39 +20,47 @@ def generate_ipv6_addresses(topology):
     Returns a dict mapping (router, interface) -> (ipv6, prefix_length)
     """
     # Parse the base IPv6 network
-    ipv6_base = topology.get("ipv6_base", "2001:db8::/64")
+    ipv6_base = topology.get("ipv6_base", "2001:db8::/48")
     base_network = ipaddress.ip_network(ipv6_base, strict=False)
     
     # Get all links
     links = topology.get("links", [])
     
-    # We'll assign IPv6 addresses from sequential /64 subnets
+    # Validate we can produce multiple /64 subnets
+    if base_network.prefixlen >= 64 and len(links) > 1:
+        print("Error: ipv6_base must be shorter than /64 to generate multiple /64 subnets.")
+        sys.exit(1)
+
+    # We'll assign IPv6 addresses from sequential /64 subnets using a readable numbering
     ipv6_assignments = {}
-    
-    # Generate /64 subnets from the base network
-    subnet_gen = base_network.subnets(new_prefix=64)
-    
-    # Process each link
-    for i, link in enumerate(links):
-        try:
-            # Get the next /64 subnet
-            subnet = next(subnet_gen)
-            
-            # Assign ::1 address to router A
-            ipv6_a = str(subnet.network_address + 1)  # e.g., 2001:db8::1
-            # Assign ::2 address to router B  
-            ipv6_b = str(subnet.network_address + 2)  # e.g., 2001:db8::2
-            
-            prefix_length = subnet.prefixlen  # Should be 64
-            
-            # Store assignments
-            ipv6_assignments[(link["a"], link["a_iface"])] = (ipv6_a, prefix_length)
-            ipv6_assignments[(link["b"], link["b_iface"])] = (ipv6_b, prefix_length)
-            
-        except StopIteration:
-            print(f"Error: Ran out of IPv6 addresses at link {i}")
-            break
-    
+
+    # Process each link and create subnets like 2001:db8:1::/64, 2001:db8:2::/64, ...
+    for i, link in enumerate(links, start=1):
+        # Compute the ith /64 inside the base network: add i * 2^64 to the base address
+        subnet_addr = base_network.network_address + (i << 64)
+        subnet = ipaddress.ip_network(f"{subnet_addr}/64", strict=False)
+
+        # Assign ::1 address to router A and ::2 to router B
+        ipv6_a = str(subnet.network_address + 1)
+        ipv6_b = str(subnet.network_address + 2)
+        prefix_length = subnet.prefixlen  # 64
+
+        ipv6_assignments[(link["a"], link["a_iface"])] = (ipv6_a, prefix_length)
+        ipv6_assignments[(link["b"], link["b_iface"])] = (ipv6_b, prefix_length)
+
+    # NOTE: The following block previously generated Loopback0 (/128) addresses
+    # for each router and returned them along with interface addresses. Per
+    # request, this logic is preserved here as commented code so it can be
+    # re-enabled later if desired, but it will not affect current output.
+
+    # # Create loopback addresses (/128) for each router
+    # loopback_assignments = {}
+    # loopback_offset_base = (1 << 64) * 100  # jump 100 /64 blocks ahead for loopbacks
+    # for idx, router in enumerate(topology.get("routers", []), start=1):
+    #     router_name = router.get("name")
+    #     loopback_ip = str(base_network.network_address + loopback_offset_base + idx)
+    #     loopback_assignments[router_name] = (loopback_ip, 128)
+
     return ipv6_assignments
 
 def create_ospfv3_config(router_name, router_data, ipv6_assignments, topology):
@@ -61,11 +69,6 @@ def create_ospfv3_config(router_name, router_data, ipv6_assignments, topology):
     Returns the config as a string.
     """
     config_lines = []
-    
-    # Extract router number for Loopback and Router ID
-    router_num = ''.join(filter(str.isdigit, router_name))
-    if not router_num:
-        router_num = "1"
     
     # 1. Basic hostname
     config_lines.append(f"hostname {router_name}")
@@ -76,60 +79,41 @@ def create_ospfv3_config(router_name, router_data, ipv6_assignments, topology):
     config_lines.append("ipv6 cef")
     config_lines.append("!")
     
-    # 3. Configure Loopback0 (Loopback IPv6 address for stable routing tests)
-    config_lines.append("! Loopback configuration")
-    loopback_ipv6 = f"2001:db8:ffff::{router_num}"
-    config_lines.append("interface Loopback0")
-    config_lines.append(f" ipv6 address {loopback_ipv6}/128")
-    config_lines.append(" no shutdown")
-    config_lines.append("!")
-    
-    # 4. Configure interfaces with IPv6 addresses
+    # Determine router ID early (OSPFv3 still uses 32-bit router IDs)
+    router_num = ''.join(filter(str.isdigit, router_name))
+    if router_num:
+        router_id = f"{router_num}.{router_num}.{router_num}.{router_num}"
+    else:
+        router_id = "1.1.1.1"
+
+    # Loopback generation is intentionally disabled (preserved as commented code)
+
+    # 4. Configure other interfaces with IPv6 addresses and interface defaults
     config_lines.append("! Interface configurations")
     for interface in router_data["interfaces"]:
         interface_name = interface["name"]
         config_lines.append(f"interface {interface_name}")
-        
+        config_lines.append(" no ip address")
+
         # Check if this interface has an IPv6 assignment
         key = (router_name, interface_name)
         if key in ipv6_assignments:
             ipv6, prefix_length = ipv6_assignments[key]
-            config_lines.append(f" no ipv6 address")
+            config_lines.append(" ipv6 nd dad attempts 0")
             config_lines.append(f" ipv6 address {ipv6}/{prefix_length}")
-            config_lines.append(" ipv6 enable")
+            config_lines.append(f" ipv6 ospf 1 area 0")
             config_lines.append(" no shutdown")
         else:
             config_lines.append(" shutdown")
-        
+
         config_lines.append("!")
-    
-    # 6. OSPFv3 configuration
-    config_lines.append("! OSPFv3 configuration")
+
+    # 5. OSPFv3 router stanza
     config_lines.append("ipv6 router ospf 1")
-    
-    # Generate router ID from last octet (R1 -> 1.1.1.1, R2 -> 2.2.2.2, etc.)
-    # Note: OSPFv3 still uses 32-bit router IDs (IPv4 format)
-    router_id = f"{router_num}.{router_num}.{router_num}.{router_num}"
-    
     config_lines.append(f" router-id {router_id}")
-    config_lines.append(" passive-interface Loopback0")
     config_lines.append("!")
-    
-    # 7. Enable OSPFv3 on interfaces
-    config_lines.append("! Enable OSPFv3 on interfaces")
-    config_lines.append("interface Loopback0")
-    config_lines.append(" ipv6 ospf 1 area 0")
-    config_lines.append("!")
-    for interface in router_data["interfaces"]:
-        interface_name = interface["name"]
-        key = (router_name, interface_name)
-        
-        if key in ipv6_assignments:
-            config_lines.append(f"interface {interface_name}")
-            config_lines.append(" ipv6 ospf 1 area 0")
-            config_lines.append("!")
-    
-    # 8. End with save command
+
+    # 6. End with save command
     config_lines.append("end")
     config_lines.append("write memory")
     
@@ -144,7 +128,6 @@ def generate_all_configs(topology, output_dir="configs"):
     # Generate IPv6 addresses for all links
     print("Generating IPv6 addresses for links...")
     ipv6_assignments = generate_ipv6_addresses(topology)
-    
     # Print IPv6 assignments for verification
     print("\nIPv6 Address Assignments:")
     print("-" * 50)
@@ -219,7 +202,7 @@ def create_sample_json():
             {"a": "R1", "a_iface": "GigabitEthernet1/0", "b": "R2", "b_iface": "GigabitEthernet1/0"},
             {"a": "R2", "a_iface": "GigabitEthernet2/0", "b": "R3", "b_iface": "GigabitEthernet2/0"}
         ],
-        "ipv6_base": "2001:db8::/64"
+        "ipv6_base": "2001:db8::/48"
     }
     
     with open("topology_ipv6.json", "w") as f:
