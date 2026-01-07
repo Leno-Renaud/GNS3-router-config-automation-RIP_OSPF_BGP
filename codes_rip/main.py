@@ -4,7 +4,7 @@ Workflow complet : GNS3 project -> topology.json -> fichiers .cfg
 """
 
 from pathlib import Path
-from cfg_generation import cfg_generation
+from cfg_generation_rip import cfg_generation
 from get_topology import extract_topology
 
 

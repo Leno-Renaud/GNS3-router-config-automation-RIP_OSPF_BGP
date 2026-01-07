@@ -92,10 +92,7 @@ def create_ospfv3_config(router_name, router_data):
 
 
 def generate_all_configs(topology, output_dir="configs"):
-    """Generate configuration files for all routers."""
-    
-    # Create output directory if it doesn't exist
-    os.makedirs(output_dir, exist_ok=True)
+    """Generate configuration dictionary for all routers."""
     
     print("Generating OSPFv3 configurations from topology...")
     print("-" * 60)
@@ -138,6 +135,8 @@ def generate_all_configs(topology, output_dir="configs"):
     print("2. Replace their startup-config.cfg files with these .cfg files")
     print("3. Start the routers")
     print("=" * 60)
+    
+    return configs_dict
 
 
 def main():
@@ -159,7 +158,8 @@ def main():
             sys.exit(1)
     
     # Generate configurations
-    generate_all_configs(topology)
+    configs = generate_all_configs(topology)
+    print(configs)
 
 
 if __name__ == "__main__":
