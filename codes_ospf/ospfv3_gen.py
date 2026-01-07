@@ -1,123 +1,95 @@
 #!/usr/bin/env python3
 """
 IPv6 OSPFv3 Config Generator for GNS3 c7200 routers
-Takes a simple JSON topology and generates .cfg files with OSPFv3 configuration
+Accepts topology.json from get_topology.py (shared format with RIP/BGP)
+Generates .cfg files with OSPFv3 configuration
 """
 
 import json
-import ipaddress
 import os
 import sys
 
+
 def load_topology(json_file):
-    """Load the topology JSON file."""
+    """Load the topology JSON file (format from get_topology.py)."""
     with open(json_file, 'r') as f:
         return json.load(f)
 
-def generate_ipv6_addresses(topology):
-    """
-    Generate IPv6 addresses for all links based on ipv6_base.
-    Returns a dict mapping (router, interface) -> (ipv6, prefix_length)
-    """
-    # Parse the base IPv6 network
-    ipv6_base = topology.get("ipv6_base", "2001:db8::/48")
-    base_network = ipaddress.ip_network(ipv6_base, strict=False)
-    
-    # Get all links
-    links = topology.get("links", [])
-    
-    # Validate we can produce multiple /64 subnets
-    if base_network.prefixlen >= 64 and len(links) > 1:
-        print("Error: ipv6_base must be shorter than /64 to generate multiple /64 subnets.")
-        sys.exit(1)
 
-    # We'll assign IPv6 addresses from sequential /64 subnets using a readable numbering
-    ipv6_assignments = {}
-
-    # Process each link and create subnets like 2001:db8:1::/64, 2001:db8:2::/64, ...
-    for i, link in enumerate(links, start=1):
-        # Compute the ith /64 inside the base network: add i * 2^64 to the base address
-        subnet_addr = base_network.network_address + (i << 64)
-        subnet = ipaddress.ip_network(f"{subnet_addr}/64", strict=False)
-
-        # Assign ::1 address to router A and ::2 to router B
-        ipv6_a = str(subnet.network_address + 1)
-        ipv6_b = str(subnet.network_address + 2)
-        prefix_length = subnet.prefixlen  # 64
-
-        ipv6_assignments[(link["a"], link["a_iface"])] = (ipv6_a, prefix_length)
-        ipv6_assignments[(link["b"], link["b_iface"])] = (ipv6_b, prefix_length)
-
-    # NOTE: The following block previously generated Loopback0 (/128) addresses
-    # for each router and returned them along with interface addresses. Per
-    # request, this logic is preserved here as commented code so it can be
-    # re-enabled later if desired, but it will not affect current output.
-
-    # # Create loopback addresses (/128) for each router
-    # loopback_assignments = {}
-    # loopback_offset_base = (1 << 64) * 100  # jump 100 /64 blocks ahead for loopbacks
-    # for idx, router in enumerate(topology.get("routers", []), start=1):
-    #     router_name = router.get("name")
-    #     loopback_ip = str(base_network.network_address + loopback_offset_base + idx)
-    #     loopback_assignments[router_name] = (loopback_ip, 128)
-
-    return ipv6_assignments
-
-def create_ospfv3_config(router_name, router_data, ipv6_assignments, topology):
+def create_ospfv3_config(router_name, router_data):
     """
     Create OSPFv3 configuration for a single router.
+    Expects router_data with 'interfaces' list (ip, prefix, name).
     Returns the config as a string.
     """
     config_lines = []
+    
+    # Extract router number for Router ID
+    router_num = ''.join(filter(str.isdigit, router_name))
+    if not router_num:
+        router_num = "1"
     
     # 1. Basic hostname
     config_lines.append(f"hostname {router_name}")
     config_lines.append("!")
     
-    # 2. Enable IPv6 unicast routing (required for OSPFv3)
+    # 2. Enable IPv6 unicast routing and CEF
     config_lines.append("ipv6 unicast-routing")
     config_lines.append("ipv6 cef")
     config_lines.append("!")
     
-    # Determine router ID early (OSPFv3 still uses 32-bit router IDs)
-    router_num = ''.join(filter(str.isdigit, router_name))
-    if router_num:
-        router_id = f"{router_num}.{router_num}.{router_num}.{router_num}"
-    else:
-        router_id = "1.1.1.1"
-
-    # Loopback generation is intentionally disabled (preserved as commented code)
-
-    # 4. Configure other interfaces with IPv6 addresses and interface defaults
+    # 3. Configure interfaces with IPv6 addresses (from topology)
     config_lines.append("! Interface configurations")
-    for interface in router_data["interfaces"]:
-        interface_name = interface["name"]
-        config_lines.append(f"interface {interface_name}")
+    interfaces = router_data.get("interfaces", [])
+    
+    # Build list of interface names to check later
+    all_iface_names = [iface["name"] for iface in interfaces]
+    
+    # Configure all interfaces (connected or not)
+    for iface in interfaces:
+        iface_name = iface["name"]
+        ip = iface["ip"]
+        prefix = iface["prefix"]
+        
+        config_lines.append(f"interface {iface_name}")
         config_lines.append(" no ip address")
-
-        # Check if this interface has an IPv6 assignment
-        key = (router_name, interface_name)
-        if key in ipv6_assignments:
-            ipv6, prefix_length = ipv6_assignments[key]
-            config_lines.append(" ipv6 nd dad attempts 0")
-            config_lines.append(f" ipv6 address {ipv6}/{prefix_length}")
-            config_lines.append(f" ipv6 ospf 1 area 0")
-            config_lines.append(" no shutdown")
-        else:
-            config_lines.append(" shutdown")
-
+        config_lines.append(" ipv6 nd dad attempts 0")
+        config_lines.append(f" ipv6 address {ip}/{prefix}")
+        config_lines.append(" ipv6 ospf 1 area 0")
+        config_lines.append(" no shutdown")
         config_lines.append("!")
-
-    # 5. OSPFv3 router stanza
+    
+    # Shutdown any default interfaces not in topology
+    default_ifaces = ["GigabitEthernet1/0", "GigabitEthernet2/0", "GigabitEthernet3/0"]
+    for default_iface in default_ifaces:
+        if default_iface not in all_iface_names:
+            config_lines.append(f"interface {default_iface}")
+            config_lines.append(" no ip address")
+            config_lines.append(" shutdown")
+            config_lines.append("!")
+    
+    # 4. OSPFv3 configuration
+    config_lines.append("! OSPFv3 configuration")
     config_lines.append("ipv6 router ospf 1")
+    
+    # Generate router ID from router number
+    router_id = f"{router_num}.{router_num}.{router_num}.{router_num}"
     config_lines.append(f" router-id {router_id}")
     config_lines.append("!")
-
+    
+    # 5. Re-enable OSPFv3 on interfaces (for clarity/verification)
+    for iface in interfaces:
+        iface_name = iface["name"]
+        config_lines.append(f"interface {iface_name}")
+        config_lines.append(" ipv6 ospf 1 area 0")
+        config_lines.append(" !")
+    
     # 6. End with save command
     config_lines.append("end")
     config_lines.append("write memory")
     
     return "\n".join(config_lines)
+
 
 def generate_all_configs(topology, output_dir="configs"):
     """Generate configuration files for all routers."""
@@ -125,25 +97,17 @@ def generate_all_configs(topology, output_dir="configs"):
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     
-    # Generate IPv6 addresses for all links
-    print("Generating IPv6 addresses for links...")
-    ipv6_assignments = generate_ipv6_addresses(topology)
-    # Print IPv6 assignments for verification
-    print("\nIPv6 Address Assignments:")
-    print("-" * 50)
-    for (router, iface), (ipv6, prefix) in ipv6_assignments.items():
-        print(f"{router}:{iface} -> {ipv6}/{prefix}")
+    print("Generating OSPFv3 configurations from topology...")
+    print("-" * 60)
     
-    # Generate config for each router
-    print("\nGenerating router configurations...")
-    print("-" * 50)
+    routers = topology.get("routers", [])
     
-    for router_data in topology["routers"]:
+    for router_data in routers:
         router_name = router_data["name"]
         print(f"Creating config for {router_name}...")
         
         # Generate the config
-        config = create_ospfv3_config(router_name, router_data, ipv6_assignments, topology)
+        config = create_ospfv3_config(router_name, router_data)
         
         # Save to .cfg file
         filename = f"{router_name}.cfg"
@@ -155,61 +119,26 @@ def generate_all_configs(topology, output_dir="configs"):
         print(f"  Saved to: {filepath}")
         
         # Display a summary of what's configured
-        print(f"  OSPFv3 interfaces enabled:")
-        for interface in router_data["interfaces"]:
-            key = (router_name, interface["name"])
-            if key in ipv6_assignments:
-                ipv6, prefix = ipv6_assignments[key]
-                print(f"    {interface['name']}: {ipv6}/{prefix}")
+        interfaces = router_data.get("interfaces", [])
+        if interfaces:
+            print(f"  Interfaces configured:")
+            for iface in interfaces:
+                print(f"    {iface['name']}: {iface['ip']}/{iface['prefix']}")
+        else:
+            print(f"  No interfaces configured (all shutdown)")
     
     print("\n" + "=" * 60)
-    print(f"Done! Configurations saved in '{output_dir}/' directory")
+    print(f"Done! OSPFv3 configurations saved in '{output_dir}/' directory")
     print("\nIMPORTANT FOR OSPFv3:")
-    print("1. OSPFv3 requires 'ipv6 unicast-routing' to be enabled")
-    print("2. Router ID must be set (still IPv4 format)")
-    print("3. OSPFv3 is enabled per interface with 'ipv6 ospf 1 area 0'")
+    print("1. All interfaces are pre-configured with 'no shutdown'")
+    print("2. Loopback0 is configured with /128 as passive interface")
+    print("3. OSPFv3 is enabled on all active interfaces (area 0)")
     print("\nTo use in GNS3:")
     print("1. Stop the routers in GNS3")
     print("2. Replace their startup-config.cfg files with these .cfg files")
     print("3. Start the routers")
     print("=" * 60)
 
-def create_sample_json():
-    """Create a sample topology JSON file with IPv6."""
-    sample = {
-        "routers": [
-            {
-                "name": "R1",
-                "interfaces": [
-                    {"name": "GigabitEthernet1/0"}
-                ]
-            },
-            {
-                "name": "R2",
-                "interfaces": [
-                    {"name": "GigabitEthernet1/0"},
-                    {"name": "GigabitEthernet2/0"}
-                ]
-            },
-            {
-                "name": "R3",
-                "interfaces": [
-                    {"name": "GigabitEthernet2/0"}
-                ]
-            }
-        ],
-        "links": [
-            {"a": "R1", "a_iface": "GigabitEthernet1/0", "b": "R2", "b_iface": "GigabitEthernet1/0"},
-            {"a": "R2", "a_iface": "GigabitEthernet2/0", "b": "R3", "b_iface": "GigabitEthernet2/0"}
-        ],
-        "ipv6_base": "2001:db8::/48"
-    }
-    
-    with open("topology_ipv6.json", "w") as f:
-        json.dump(sample, f, indent=2)
-    
-    print("Created sample topology_ipv6.json")
-    return sample
 
 def main():
     """Main function - handles command line arguments."""
@@ -220,13 +149,18 @@ def main():
         print(f"Loading topology from {json_file}...")
         topology = load_topology(json_file)
     else:
-        # Create and use sample topology
-        print("No input file provided. Creating sample IPv6 topology...")
-        topology = create_sample_json()
-        print("\nUsing sample topology_ipv6.json")
+        # Default to topology.json in current directory
+        json_file = "topology.json"
+        if os.path.exists(json_file):
+            print(f"Loading topology from {json_file}...")
+            topology = load_topology(json_file)
+        else:
+            print(f"Error: topology.json not found. Please provide topology file as argument.")
+            sys.exit(1)
     
     # Generate configurations
     generate_all_configs(topology)
+
 
 if __name__ == "__main__":
     main()
