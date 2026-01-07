@@ -25,7 +25,7 @@ def main():
     topology_filename = "topology_bgp.json"
     
     # Extraire la topologie avec ASN et voisins
-    extract_topology_bgp(gns3_project_file, ip_base, asn_base, base_dir, topology_filename)
+    # extract_topology_bgp(gns3_project_file, ip_base, asn_base, base_dir, topology_filename)
     
     # Générer les configurations
     cfg_generation_bgp(topology_filename, base_dir)

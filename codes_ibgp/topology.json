@@ -1,0 +1,64 @@
+{
+  "ip_base": "2000:1::/64",
+  "routers": [
+    {
+      "name": "R1",
+      "interfaces": [
+        {
+          "name": "GigabitEthernet1/0",
+          "ip": "2000:1::1",
+          "prefix": 64
+        }
+      ],
+      "rip_networks": [
+        "2000:1::"
+      ]
+    },
+    {
+      "name": "R2",
+      "interfaces": [
+        {
+          "name": "GigabitEthernet1/0",
+          "ip": "2000:1::2",
+          "prefix": 64
+        },
+        {
+          "name": "GigabitEthernet2/0",
+          "ip": "2000:1:0:1::1",
+          "prefix": 64
+        }
+      ],
+      "rip_networks": [
+        "2000:1:0:1::",
+        "2000:1::"
+      ]
+    },
+    {
+      "name": "R3",
+      "interfaces": [
+        {
+          "name": "GigabitEthernet2/0",
+          "ip": "2000:1:0:1::2",
+          "prefix": 64
+        }
+      ],
+      "rip_networks": [
+        "2000:1:0:1::"
+      ]
+    }
+  ],
+  "links": [
+    {
+      "a": "R1",
+      "a_iface": "GigabitEthernet1/0",
+      "b": "R2",
+      "b_iface": "GigabitEthernet1/0"
+    },
+    {
+      "a": "R2",
+      "a_iface": "GigabitEthernet2/0",
+      "b": "R3",
+      "b_iface": "GigabitEthernet2/0"
+    }
+  ]
+}
