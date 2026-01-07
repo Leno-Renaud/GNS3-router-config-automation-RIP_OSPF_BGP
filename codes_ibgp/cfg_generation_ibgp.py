@@ -15,7 +15,7 @@ def generate_router_id(router_name):
 def cfg_generation_ibgp(topology_path=None, asn=65000, output_dir=None):
     base_dir = os.path.dirname(__file__)
     if topology_path is None:
-        topology_path = os.path.join(base_dir, "..", "codes_ospf", "topology.json")
+        topology_path = os.path.join(base_dir, "..", "codes_ibgp", "topology.json")
         topology_path = os.path.normpath(topology_path)
 
     if output_dir is None:

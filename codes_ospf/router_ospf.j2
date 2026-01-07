@@ -1,0 +1,34 @@
+hostname {{ router_name }}
+!
+ipv6 unicast-routing
+ipv6 cef
+!
+! Interface configurations
+{% for iface in interfaces %}
+interface {{ iface.name }}
+ no ip address
+ ipv6 nd dad attempts 0
+ ipv6 address {{ iface.ip }}/{{ iface.prefix }}
+ ipv6 ospf 1 area 0
+ no shutdown
+!
+{% endfor %}
+{% for default_iface in default_ifaces %}
+{% if default_iface not in iface_names %}
+interface {{ default_iface }}
+ no ip address
+ shutdown
+!
+{% endif %}
+{% endfor %}
+! OSPFv3 configuration
+ipv6 router ospf 1
+ router-id {{ router_id }}
+!
+{% for iface in interfaces %}
+interface {{ iface.name }}
+ ipv6 ospf 1 area 0
+ !
+{% endfor %}
+end
+write memory
