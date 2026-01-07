@@ -2,6 +2,14 @@ import json
 import ipaddress
 from pathlib import Path
 from collections import defaultdict
+import re
+
+# --- MAPPING COULEUR -> PROTOCOLE/AS ---
+COLOR_TO_PROTOCOL = {
+    "ff0000": "RIP",      # Rouge
+    "0000ff": "OSPF",     # Bleu
+    "00ff00": "eBGP",     # Vert
+}
 
 # --- FONCTION UTILITAIRE : Traduction GNS3 -> Cisco ---
 def get_interface_name(adapter, port):
@@ -15,6 +23,115 @@ def get_interface_name(adapter, port):
     # Les adaptateurs suivants (1, 2...) sont souvent des modules Gigabit
     else:
         return f"GigabitEthernet{adapter}/{port}"
+
+
+def extract_drawings(gns3_data):
+    """
+    Extrait les rectangles de dessins du projet GNS3.
+    Retourne une liste de dictionnaires avec: x, y, width, height, color, protocol, as_number
+    Assigne les numéros d'AS croissants: 100, 200, 300... (sauf pour eBGP)
+    """
+    drawings = gns3_data.get("topology", {}).get("drawings", [])
+    rectangles = []
+    as_counter = 100
+    
+    for drawing in drawings:
+        svg = drawing.get("svg", "")
+        
+        # Extraire les dimensions du SVG
+        width_match = re.search(r'width="(\d+)"', svg)
+        height_match = re.search(r'height="(\d+)"', svg)
+        
+        # Extraire la couleur (stroke ou fill)
+        color_match = re.search(r'stroke="#([0-9a-f]+)"', svg)
+        if not color_match:
+            color_match = re.search(r'fill="#([0-9a-f]+)"', svg)
+        
+        if width_match and height_match:
+            width = int(width_match.group(1))
+            height = int(height_match.group(1))
+            color = color_match.group(1) if color_match else "000000"
+            protocol = COLOR_TO_PROTOCOL.get(color.lower(), "UNKNOWN")
+            
+            rect = {
+                "x": drawing["x"],
+                "y": drawing["y"],
+                "width": width,
+                "height": height,
+                "color": color,
+                "protocol": protocol
+            }
+            
+            # Assigner un AS seulement si ce n'est pas eBGP
+            if protocol != "eBGP":
+                rect["as_number"] = as_counter
+                as_counter += 100
+            else:
+                rect["as_number"] = None
+                rect["ebgp"] = True
+            
+            rectangles.append(rect)
+    
+    return rectangles
+
+
+def point_in_rectangle(px, py, rect):
+    """
+    Vérifie si un point (px, py) est dans un rectangle.
+    """
+    x_min = rect["x"]
+    x_max = rect["x"] + rect["width"]
+    y_min = rect["y"]
+    y_max = rect["y"] + rect["height"]
+    
+    return x_min <= px <= x_max and y_min <= py <= y_max
+
+
+def assign_routers_to_as(nodes_data, rectangles):
+    """
+    Assigne chaque routeur à un AS basé sur les rectangles qui le contiennent.
+    Un routeur peut être dans plusieurs rectangles:
+    - Un rectangle RIP/OSPF (définit protocol et as_number)
+    - Un rectangle eBGP en plus (ajoute ebgp: True)
+    """
+    router_to_as = {}
+    
+    for node in nodes_data:
+        if node.get("node_type") == "dynamips":  # C'est un routeur
+            name = node["name"]
+            x = node["x"]
+            y = node["y"]
+            
+            # Trouver TOUS les rectangles qui contiennent ce routeur
+            containing_rects = []
+            for rect in rectangles:
+                if point_in_rectangle(x, y, rect):
+                    containing_rects.append(rect)
+            
+            # Initialiser avec UNKNOWN
+            protocol = "UNKNOWN"
+            as_number = None
+            has_ebgp = False
+            
+            # Traiter les rectangles
+            for rect in containing_rects:
+                if rect["protocol"] == "eBGP":
+                    has_ebgp = True
+                elif rect["protocol"] in ["RIP", "OSPF"]:
+                    # Prendre le premier rectangle RIP/OSPF trouvé
+                    if protocol == "UNKNOWN":
+                        protocol = rect["protocol"]
+                        as_number = rect["as_number"]
+            
+            # Construire la réponse
+            router_to_as[name] = {
+                "protocol": protocol,
+                "as_number": as_number,
+                "ebgp": has_ebgp
+            }
+    
+    return router_to_as
+
 
 # --- FONCTION PRINCIPALE ---
 def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_name="topology.json"):
@@ -62,6 +179,20 @@ def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_n
     print(f"DEBUG - Nombre de nœuds trouvés : {len(nodes_data)}")
     print(f"DEBUG - Nombre de liens trouvés : {len(links_data)}")
 
+    # Extraire les rectangles (AS/groupes)
+    rectangles = extract_drawings(gns3_data)
+    print(f"DEBUG - Rectangles détectés : {len(rectangles)}")
+    for i, rect in enumerate(rectangles):
+        print(f"  AS{rect['as_number']}: {rect['protocol']} ({rect['color']}) à ({rect['x']}, {rect['y']}), taille {rect['width']}x{rect['height']}")
+    
+    # Assigner les routeurs aux AS
+    router_to_as = assign_routers_to_as(nodes_data, rectangles)
+    print(f"DEBUG - Attribution routeurs -> AS:")
+    for router, as_info in router_to_as.items():
+        as_num = as_info.get("as_number", "?")
+        protocol = as_info.get("protocol", "?")
+        print(f"  {router}: AS{as_num} ({protocol})")
+
     for node in nodes_data:
         name = node["name"]
         node_id = node["node_id"]
@@ -90,6 +221,24 @@ def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_n
             })
 
     print(f"Liens détectés : {len(links)} liens actifs.")
+
+    # --- 2b. DETECTION eBGP PAR LIENS INTER-AS ---
+    # Si deux routeurs liés n'appartiennent pas au même AS, ils font de l'eBGP
+    for link in links:
+        a = link["a"]
+        b = link["b"]
+        a_info = router_to_as.get(a, {"as_number": None, "ebgp": False})
+        b_info = router_to_as.get(b, {"as_number": None, "ebgp": False})
+
+        if (
+            a_info.get("as_number") is not None
+            and b_info.get("as_number") is not None
+            and a_info.get("as_number") != b_info.get("as_number")
+        ):
+            a_info["ebgp"] = True
+            b_info["ebgp"] = True
+            router_to_as[a] = a_info
+            router_to_as[b] = b_info
 
     # --- 3. LOGIQUE D'ADRESSAGE ---
     base_net = ipaddress.ip_network(ip_base)
@@ -132,13 +281,18 @@ def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_n
         "links": []
     }
 
-    # Ajouter les routeurs
+    # Ajouter les routeurs avec leur protocole et AS assignés
     for router_name in routers_list:
-        topology_data["routers"].append({
+        as_info = router_to_as.get(router_name, {"protocol": "UNKNOWN", "as_number": None, "ebgp": False})
+        router_entry = {
             "name": router_name,
+            "protocol": as_info.get("protocol"),
+            "as_number": as_info.get("as_number"),
+            "ebgp": as_info.get("ebgp", False),
             "interfaces": interfaces_cfg.get(router_name, []),
             "networks": sorted(networks.get(router_name, []))
-        })
+        }
+        topology_data["routers"].append(router_entry)
 
     # Ajouter les liens
     for link in links:
@@ -158,3 +312,15 @@ def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_n
     print(f"\nTerminé ! La topologie a été extraite depuis {gns3_path}")
     
     return topology_data
+
+
+if __name__ == "__main__":
+    # Test avec le projet blank_project
+    gns3_project = r"C:\Users\Hector\Desktop\INSA Lyon\3A-TC\S1\GNS Projet\blank_project\blank_project.gns3"
+    ip_base = "2000:1::/64"
+    
+    print("=" * 60)
+    print("Test d'extraction de topologie")
+    print("=" * 60)
+    
+    extract_topology(gns3_project, ip_base)
