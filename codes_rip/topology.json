@@ -10,7 +10,7 @@
           "prefix": 64
         }
       ],
-      "rip_networks": [
+      "networks": [
         "2000:1::"
       ]
     },
@@ -28,7 +28,7 @@
           "prefix": 64
         }
       ],
-      "rip_networks": [
+      "networks": [
         "2000:1:0:1::",
         "2000:1::"
       ]
@@ -42,7 +42,7 @@
           "prefix": 64
         }
       ],
-      "rip_networks": [
+      "networks": [
         "2000:1:0:1::"
       ]
     }

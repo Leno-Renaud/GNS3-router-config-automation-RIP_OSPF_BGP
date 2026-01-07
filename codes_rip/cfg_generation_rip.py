@@ -15,7 +15,7 @@ def cfg_generation(topology, ip_base):
         config = template.render(
             name=router_name,
             interfaces=routers_data[router_name]["interfaces"],
-            rip_networks=routers_data[router_name]["rip_networks"]
+            networks=routers_data[router_name]["networks"]
         )
         configs_dict[router_name] = config
     

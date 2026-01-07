@@ -94,7 +94,7 @@ def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_n
     # --- 3. LOGIQUE D'ADRESSAGE ---
     base_net = ipaddress.ip_network(ip_base)
     interfaces_cfg = defaultdict(list)
-    rip_networks = defaultdict(set)
+    networks = defaultdict(set)
     current_net = base_net
 
     for link in links:
@@ -110,7 +110,7 @@ def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_n
             "ip": str(ip_a),
             "prefix": current_net.prefixlen
         })
-        rip_networks[a].add(str(current_net.network_address))
+        networks[a].add(str(current_net.network_address))
 
         # Configuration pour le routeur B
         interfaces_cfg[b].append({
@@ -118,7 +118,7 @@ def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_n
             "ip": str(ip_b),
             "prefix": current_net.prefixlen
         })
-        rip_networks[b].add(str(current_net.network_address))
+        networks[b].add(str(current_net.network_address))
 
         # Calcul du prochain sous-réseau
         next_net_int = int(current_net.network_address) + current_net.num_addresses
@@ -137,7 +137,7 @@ def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_n
         topology_data["routers"].append({
             "name": router_name,
             "interfaces": interfaces_cfg.get(router_name, []),
-            "rip_networks": sorted(rip_networks.get(router_name, []))
+            "networks": sorted(networks.get(router_name, []))
         })
 
     # Ajouter les liens
