@@ -1,0 +1,26 @@
+{
+    "AS": [
+        {
+            "name": "AS1",
+            "routers": ["R1", "R2", "R3"],
+            "protocol": "RIP"
+        },
+        {
+            "name": "AS2",
+            "routers": ["R4", "R5", "R6"],
+            "protocol": "OSPF"
+        }
+    ],
+    "bgp_peers": [
+        {
+            "router": "R3",
+            "interface": "GigabitEthernet2/0",
+            "peer_router": "R4"
+        },
+        {
+            "router": "R4",
+            "interface": "GigabitEthernet1/0",
+            "peer_router": "R3"
+        }
+    ]
+}

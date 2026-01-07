@@ -1,0 +1,6 @@
+ipv6 router rip RIPNG
+
+{% for iface in interfaces %}
+interface {{ iface.name }}
+ ipv6 rip RIPNG enable
+{% endfor %}

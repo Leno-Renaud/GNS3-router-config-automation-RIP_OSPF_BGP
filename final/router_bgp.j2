@@ -1,0 +1,31 @@
+hostname {{ name }}
+
+ipv6 unicast-routing
+ipv6 cef
+
+{% for iface in interfaces %}
+interface {{ iface.name }}
+ no ip address
+ ipv6 nd dad attempts 0
+ ipv6 address {{ iface.ip }}/{{ iface.prefix }}
+ ipv6 enable
+ no shutdown
+{% endfor %}
+
+router bgp {{ asn }}
+ bgp router-id {{ router_id }}
+ bgp log-neighbor-changes
+{% for neighbor in neighbors %}
+ neighbor {{ neighbor.neighbor }} remote-as {{ neighbor.remote_as }}
+{% if neighbor.update_source %} neighbor {{ neighbor.neighbor }} update-source {{ neighbor.update_source }}
+{% endif %}
+{% if neighbor.name %} neighbor {{ neighbor.neighbor }} description to_{{ neighbor.name }}
+{% endif %}
+{% endfor %}
+ !
+ address-family ipv6 unicast
+{% for neighbor in neighbors %}
+	neighbor {{ neighbor.neighbor }} activate
+{% endfor %}
+	redistribute connected
+ exit-address-family

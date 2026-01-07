@@ -1,0 +1,115 @@
+{
+	"ip_base": "2001:db8::/48",
+	"ipv6_base": "2001:db8::/48",
+	"routers": [
+		{
+			"name": "R1",
+			"as_name": "AS1",
+			"asn": 65001,
+			"igp": "rip",
+			"loopback": "10.0.1.1",
+			"interfaces": [
+				{"name": "Loopback0", "ip": "10.0.1.1", "prefix": 32},
+				{"name": "GigabitEthernet1/0", "ip": "2001:db8:1::1", "prefix": 64, "network": "2001:db8:1::/64"}
+			],
+			"rip_networks": ["2001:db8:1::"],
+			"neighbors": [
+				{"neighbor": "10.0.1.2", "remote_as": 65001, "update_source": "Loopback0"},
+				{"neighbor": "10.0.1.3", "remote_as": 65001, "update_source": "Loopback0"}
+			]
+		},
+		{
+			"name": "R2",
+			"as_name": "AS1",
+			"asn": 65001,
+			"igp": "rip",
+			"loopback": "10.0.1.2",
+			"interfaces": [
+				{"name": "Loopback0", "ip": "10.0.1.2", "prefix": 32},
+				{"name": "GigabitEthernet1/0", "ip": "2001:db8:1::2", "prefix": 64, "network": "2001:db8:1::/64"},
+				{"name": "GigabitEthernet2/0", "ip": "2001:db8:2::1", "prefix": 64, "network": "2001:db8:2::/64"}
+			],
+			"rip_networks": ["2001:db8:1::", "2001:db8:2::"],
+			"neighbors": [
+				{"neighbor": "10.0.1.1", "remote_as": 65001, "update_source": "Loopback0"},
+				{"neighbor": "10.0.1.3", "remote_as": 65001, "update_source": "Loopback0"}
+			]
+		},
+		{
+			"name": "R3",
+			"as_name": "AS1",
+			"asn": 65001,
+			"igp": "rip",
+			"loopback": "10.0.1.3",
+			"interfaces": [
+				{"name": "Loopback0", "ip": "10.0.1.3", "prefix": 32},
+				{"name": "GigabitEthernet1/0", "ip": "2001:db8:2::2", "prefix": 64, "network": "2001:db8:2::/64"},
+				{"name": "GigabitEthernet2/0", "ip": "2001:db8:3::1", "prefix": 64, "network": "2001:db8:3::/64"}
+			],
+			"rip_networks": ["2001:db8:2::", "2001:db8:3::"],
+			"neighbors": [
+				{"neighbor": "10.0.1.1", "remote_as": 65001, "update_source": "Loopback0"},
+				{"neighbor": "10.0.1.2", "remote_as": 65001, "update_source": "Loopback0"},
+				{"neighbor": "2001:db8:3::2", "remote_as": 65002}
+			]
+		},
+		{
+			"name": "R4",
+			"as_name": "AS2",
+			"asn": 65002,
+			"igp": "ospf",
+			"loopback": "10.0.2.4",
+			"interfaces": [
+				{"name": "Loopback0", "ip": "10.0.2.4", "prefix": 32},
+				{"name": "GigabitEthernet1/0", "ip": "2001:db8:3::2", "prefix": 64, "network": "2001:db8:3::/64"},
+				{"name": "GigabitEthernet2/0", "ip": "2001:db8:4::1", "prefix": 64, "network": "2001:db8:4::/64"}
+			],
+			"rip_networks": [],
+			"neighbors": [
+				{"neighbor": "10.0.2.5", "remote_as": 65002, "update_source": "Loopback0"},
+				{"neighbor": "10.0.2.6", "remote_as": 65002, "update_source": "Loopback0"},
+				{"neighbor": "2001:db8:3::1", "remote_as": 65001}
+			]
+		},
+		{
+			"name": "R5",
+			"as_name": "AS2",
+			"asn": 65002,
+			"igp": "ospf",
+			"loopback": "10.0.2.5",
+			"interfaces": [
+				{"name": "Loopback0", "ip": "10.0.2.5", "prefix": 32},
+				{"name": "GigabitEthernet1/0", "ip": "2001:db8:4::2", "prefix": 64, "network": "2001:db8:4::/64"},
+				{"name": "GigabitEthernet2/0", "ip": "2001:db8:5::1", "prefix": 64, "network": "2001:db8:5::/64"}
+			],
+			"rip_networks": [],
+			"neighbors": [
+				{"neighbor": "10.0.2.4", "remote_as": 65002, "update_source": "Loopback0"},
+				{"neighbor": "10.0.2.6", "remote_as": 65002, "update_source": "Loopback0"}
+			]
+		},
+		{
+			"name": "R6",
+			"as_name": "AS2",
+			"asn": 65002,
+			"igp": "ospf",
+			"loopback": "10.0.2.6",
+			"interfaces": [
+				{"name": "Loopback0", "ip": "10.0.2.6", "prefix": 32},
+				{"name": "GigabitEthernet1/0", "ip": "2001:db8:5::2", "prefix": 64, "network": "2001:db8:5::/64"}
+			],
+			"rip_networks": [],
+			"neighbors": [
+				{"neighbor": "10.0.2.4", "remote_as": 65002, "update_source": "Loopback0"},
+				{"neighbor": "10.0.2.5", "remote_as": 65002, "update_source": "Loopback0"}
+			]
+		}
+	],
+	"links": [
+		{"a": "R1", "a_iface": "GigabitEthernet1/0", "b": "R2", "b_iface": "GigabitEthernet1/0", "subnet": "2001:db8:1::/64"},
+		{"a": "R2", "a_iface": "GigabitEthernet2/0", "b": "R3", "b_iface": "GigabitEthernet1/0", "subnet": "2001:db8:2::/64"},
+		{"a": "R3", "a_iface": "GigabitEthernet2/0", "b": "R4", "b_iface": "GigabitEthernet1/0", "subnet": "2001:db8:3::/64"},
+		{"a": "R4", "a_iface": "GigabitEthernet2/0", "b": "R5", "b_iface": "GigabitEthernet1/0", "subnet": "2001:db8:4::/64"},
+		{"a": "R5", "a_iface": "GigabitEthernet2/0", "b": "R6", "b_iface": "GigabitEthernet1/0", "subnet": "2001:db8:5::/64"}
+	]
+}

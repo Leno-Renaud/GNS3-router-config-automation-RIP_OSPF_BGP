@@ -70,14 +70,10 @@ def create_ospfv3_config(router_name, router_data, ipv6_assignments, topology):
     """
     config_lines = []
     
-    # 1. Basic hostname
-    config_lines.append(f"hostname {router_name}")
-    config_lines.append("!")
+    # Skip hostname since BGP template already sets it
     
     # 2. Enable IPv6 unicast routing (required for OSPFv3)
-    config_lines.append("ipv6 unicast-routing")
-    config_lines.append("ipv6 cef")
-    config_lines.append("!")
+    config_lines.append("ipv6 router ospf 1")
     
     # Determine router ID early (OSPFv3 still uses 32-bit router IDs)
     router_num = ''.join(filter(str.isdigit, router_name))
@@ -86,41 +82,28 @@ def create_ospfv3_config(router_name, router_data, ipv6_assignments, topology):
     else:
         router_id = "1.1.1.1"
 
-    # Loopback generation is intentionally disabled (preserved as commented code)
-
-    # 4. Configure other interfaces with IPv6 addresses and interface defaults
-    config_lines.append("! Interface configurations")
-    for interface in router_data["interfaces"]:
-        interface_name = interface["name"]
-        config_lines.append(f"interface {interface_name}")
-        config_lines.append(" no ip address")
-
-        # Check if this interface has an IPv6 assignment
-        key = (router_name, interface_name)
-        if key in ipv6_assignments:
-            ipv6, prefix_length = ipv6_assignments[key]
-            config_lines.append(" ipv6 nd dad attempts 0")
-            config_lines.append(f" ipv6 address {ipv6}/{prefix_length}")
-            config_lines.append(f" ipv6 ospf 1 area 0")
-            config_lines.append(" no shutdown")
-        else:
-            config_lines.append(" shutdown")
-
-        config_lines.append("!")
-
-    # 5. OSPFv3 router stanza
-    config_lines.append("ipv6 router ospf 1")
     config_lines.append(f" router-id {router_id}")
+    config_lines.append(" passive-interface Loopback0")
+    config_lines.append(" redistribute connected")
     config_lines.append("!")
 
-    # 6. End with save command
-    config_lines.append("end")
-    config_lines.append("write memory")
+    # 4. Configure interfaces with OSPFv3
+    for interface in router_data["interfaces"]:
+        interface_name = interface["name"]
+        if interface_name.startswith("Loopback"):
+            continue
+        config_lines.append(f"interface {interface_name}")
+        config_lines.append(f" ipv6 ospf 1 area 0")
+        config_lines.append(f" ipv6 ospf network point-to-point")
+        config_lines.append("!")
     
     return "\n".join(config_lines)
 
 def generate_all_configs(topology, output_dir="configs"):
-    """Generate configuration dictionary for all routers."""
+    """Generate configuration files for all routers."""
+    
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
     
     # Generate IPv6 addresses for all links
     print("Generating IPv6 addresses for links...")
@@ -135,15 +118,21 @@ def generate_all_configs(topology, output_dir="configs"):
     print("\nGenerating router configurations...")
     print("-" * 50)
     
-    configs_dict = {}
-    
     for router_data in topology["routers"]:
         router_name = router_data["name"]
         print(f"Creating config for {router_name}...")
         
         # Generate the config
         config = create_ospfv3_config(router_name, router_data, ipv6_assignments, topology)
-        configs_dict[router_name] = config
+        
+        # Save to .cfg file
+        filename = f"{router_name}.cfg"
+        filepath = os.path.join(output_dir, filename)
+        
+        with open(filepath, "w") as f:
+            f.write(config)
+        
+        print(f"  Saved to: {filepath}")
         
         # Display a summary of what's configured
         print(f"  OSPFv3 interfaces enabled:")
@@ -154,14 +143,16 @@ def generate_all_configs(topology, output_dir="configs"):
                 print(f"    {interface['name']}: {ipv6}/{prefix}")
     
     print("\n" + "=" * 60)
-    print(f"Done! Configurations generated for {len(configs_dict)} routers")
+    print(f"Done! Configurations saved in '{output_dir}/' directory")
     print("\nIMPORTANT FOR OSPFv3:")
     print("1. OSPFv3 requires 'ipv6 unicast-routing' to be enabled")
     print("2. Router ID must be set (still IPv4 format)")
     print("3. OSPFv3 is enabled per interface with 'ipv6 ospf 1 area 0'")
+    print("\nTo use in GNS3:")
+    print("1. Stop the routers in GNS3")
+    print("2. Replace their startup-config.cfg files with these .cfg files")
+    print("3. Start the routers")
     print("=" * 60)
-    
-    return configs_dict
 
 def create_sample_json():
     """Create a sample topology JSON file with IPv6."""
@@ -215,8 +206,20 @@ def main():
         print("\nUsing sample topology_ipv6.json")
     
     # Generate configurations
-    configs = generate_all_configs(topology)
-    print(configs)
+    generate_all_configs(topology)
+
+def build_ospf_config(router_name, topology, ipv6_assignments=None):
+    """Retourne la configuration OSPFv3 pour un routeur sans écrire de fichier."""
+    if isinstance(topology, str):
+        topo = load_topology(topology)
+    else:
+        topo = topology
+
+    if ipv6_assignments is None:
+        ipv6_assignments = generate_ipv6_addresses(topo)
+
+    routers = {r["name"]: r for r in topo["routers"]}
+    return create_ospfv3_config(router_name, routers[router_name], ipv6_assignments, topo)
 
 if __name__ == "__main__":
     main()
