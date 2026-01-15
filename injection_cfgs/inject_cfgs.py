@@ -4,15 +4,31 @@ import shutil
 import glob
 
 def injection_cfg(project_dir=None, configs_dir=None):
+    if not project_dir or not os.path.exists(project_dir):
+        print(f"[ERREUR] Répertoire projet invalide ou non fourni : {project_dir}")
+        return
+
     PROJECT_DIR = project_dir
 
-    GNS3_FILE = os.path.join(PROJECT_DIR, "blank_project.gns3") 
-    # Try to find the .gns3 file dynamically if specific name not guaranteed
+    # Find the .gns3 file dynamically if specific name not guaranteed
     gns3_files = glob.glob(os.path.join(PROJECT_DIR, "*.gns3"))
-    if gns3_files:
-        GNS3_FILE = gns3_files[0]
+    if not gns3_files:
+        print(f"[ERREUR] Aucun fichier .gns3 trouvé dans le dossier : {PROJECT_DIR}")
+        return
+    
+    GNS3_FILE = gns3_files[0]
+    if len(gns3_files) > 1:
+        print(f"[ATTENTION] Plusieurs fichiers .gns3 trouvés. Utilisation de : {os.path.basename(GNS3_FILE)}")
 
     DYNAMIPS_DIR = os.path.join(PROJECT_DIR, "project-files", "dynamips")
+    
+    if not os.path.exists(DYNAMIPS_DIR):
+         print(f"[ERREUR] Dossier 'project-files/dynamips' introuvable dans : {PROJECT_DIR}")
+         # On ne return pas ici, car le projet peut être vide ou sans routeurs, mais c'est suspect pour une injection.
+    
+    if not configs_dir or not os.path.exists(configs_dir):
+        print(f"[ERREUR] Répertoire des configs invalide : {configs_dir}")
+        return
 
     CFG_DIR = configs_dir
 
