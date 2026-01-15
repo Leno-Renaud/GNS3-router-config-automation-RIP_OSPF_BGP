@@ -310,11 +310,9 @@ def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_n
     print(f"Topologie exportée : {topology_file}")
 
     print(f"\nTerminé ! La topologie a été extraite depuis {gns3_path}")
-    
-    return topology_data
 
 
-if __name__ == "__main__":
+def get_topology():
     # Test avec le projet blank_project
     gns3_project = r"C:\Users\Hector\Desktop\INSA Lyon\3A-TC\S1\GNS Projet\blank_project\blank_project.gns3"
     ip_base = "2000:1::/64"

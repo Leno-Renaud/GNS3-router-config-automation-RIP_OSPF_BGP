@@ -76,6 +76,22 @@
       "networks": [
         "2000:1:0:2::/64"
       ]
+    },
+    {
+      "name": "R4",
+      "protocol": "RIP",
+      "as_number": 100,
+      "ebgp": false,
+      "interfaces": [
+        {
+          "name": "GigabitEthernet3/0",
+          "ip": "2000:1:0:2::1",
+          "prefix": 64
+        }
+      ],
+      "networks": [
+        "2000:1:0:2::"
+      ]
     }
   ],
   "links": [
