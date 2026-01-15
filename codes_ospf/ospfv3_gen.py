@@ -65,7 +65,7 @@ def ospfv3_gen():
     with open(topo_path) as f:
         topo = json.load(f)
 
-    routers_data = {r["name"]: r for r in topo["routers"] if r.get("protocol") == "ospfv3"}
+    routers_data = {r["name"]: r for r in topo["routers"] if r.get("protocol") == "OSPF"}
     
     configs_dict = {}
 
@@ -78,6 +78,6 @@ def ospfv3_gen():
 
 if __name__ == "__main__":
     try:
-        ospfv3_gen()
+        print(ospfv3_gen() )
     except Exception as e:
         print(f"Error: {e}")

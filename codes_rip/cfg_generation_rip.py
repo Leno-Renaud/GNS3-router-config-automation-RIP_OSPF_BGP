@@ -14,7 +14,7 @@ def cfg_generation_rip():
     with open(topo_path) as f:
         topo = json.load(f)
 
-    routers_data = {r["name"]: r for r in topo["routers"] if r.get("protocol") == "rip"}
+    routers_data = {r["name"]: r for r in topo["routers"] if r.get("protocol", "").upper() == "RIP"}
     
     # Load template from same dir as script
     template_path = Path(__file__).parent / "router_rip.j2"
@@ -42,6 +42,6 @@ def cfg_generation_rip():
 
 if __name__ == "__main__":
     try:
-        cfg_generation_rip()
+        print(cfg_generation_rip())
     except Exception as e:
         print(f"Error: {e}")
