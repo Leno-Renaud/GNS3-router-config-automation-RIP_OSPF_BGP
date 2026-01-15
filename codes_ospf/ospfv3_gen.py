@@ -29,6 +29,7 @@ def create_ospfv3_config(router_name, router_data):
         router_num = "1"
 
     router_id = f"{router_num}.{router_num}.{router_num}.{router_num}"
+    loopback_ip = f"2000::{router_num}/128"
 
     interfaces = router_data.get("interfaces", [])
     all_iface_names = [iface["name"] for iface in interfaces]
@@ -45,6 +46,7 @@ def create_ospfv3_config(router_name, router_data):
         iface_names=all_iface_names,
         default_ifaces=default_ifaces,
         router_id=router_id,
+        loopback_ip=loopback_ip,
     )
 
     # Ensure trailing newline behavior matches previous implementation

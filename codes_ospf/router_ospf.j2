@@ -3,6 +3,12 @@ hostname {{ router_name }}
 ipv6 unicast-routing
 ipv6 cef
 !
+! Loopback interface
+interface Loopback0
+ no ip address
+ ipv6 address {{ loopback_ip }}
+ ipv6 ospf 1 area 0
+!
 ! Interface configurations
 {% for iface in interfaces %}
 interface {{ iface.name }}
@@ -24,6 +30,7 @@ interface {{ default_iface }}
 ! OSPFv3 configuration
 ipv6 router ospf 1
  router-id {{ router_id }}
+ passive-interface Loopback0
 !
 {% for iface in interfaces %}
 interface {{ iface.name }}

@@ -4,10 +4,10 @@ import shutil
 import glob
 
 # Chemin du Projet GNS (à modifier)
-PROJECT_DIR = r"C:\Users\bonni\GNS3\projects\PROJETGNS"
-GNS3_FILE = os.path.join(PROJECT_DIR, "PROJETGNS.gns3")
+PROJECT_DIR = r"C:\Users\Hector\Desktop\INSA Lyon\3A-TC\S1\GNS Projet\blank_project"
+GNS3_FILE = os.path.join(PROJECT_DIR, "blank_project.gns3")
 DYNAMIPS_DIR = os.path.join(PROJECT_DIR, "project-files", "dynamips")
-CFG_DIR = os.path.join(PROJECT_DIR, "Automation", "CFG_FILES")
+CFG_DIR = r"C:\Users\Hector\Desktop\INSA Lyon\3A-TC\S1\GNS Projet\projet-gns\codes_rip\configs"
 
 # Charger le projet GNS3
 with open(GNS3_FILE, "r", encoding="utf-8") as f:
