@@ -184,19 +184,18 @@ def get_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_name=
     nodes_data = gns3_data.get("topology", {}).get("nodes", gns3_data.get("nodes", []))
     links_data = gns3_data.get("topology", {}).get("links", gns3_data.get("links", []))
 
-    print(f"DEBUG - Structure GNS3: clés racine = {list(gns3_data.keys())}")
-    print(f"DEBUG - Nombre de nœuds trouvés : {len(nodes_data)}")
-    print(f"DEBUG - Nombre de liens trouvés : {len(links_data)}")
+    print(f"Nombre de nœuds trouvés : {len(nodes_data)}")
+    print(f"Nombre de liens trouvés : {len(links_data)}")
 
     # Extraire les rectangles (AS/groupes)
     rectangles = extract_drawings(gns3_data)
-    print(f"DEBUG - Rectangles détectés : {len(rectangles)}")
+    print(f"Nombre de rectangles détectés : {len(rectangles)}")
     for i, rect in enumerate(rectangles):
         print(f"  AS{rect['as_number']}: {rect['protocol']} ({rect['color']}) à ({rect['x']}, {rect['y']}), taille {rect['width']}x{rect['height']}")
     
     # Assigner les routeurs aux AS
     router_to_as = assign_routers_to_as(nodes_data, rectangles)
-    print(f"DEBUG - Attribution routeurs -> AS:")
+    print(f"Attribution routeurs -> AS:")
     for router, as_info in router_to_as.items():
         as_num = as_info.get("as_number", "?")
         protocol = as_info.get("protocol", "?")

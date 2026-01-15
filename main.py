@@ -68,9 +68,13 @@ def run_automation(gns3_file_path, ip_prefix, loopback_format="simple"):
     print("  -> Génération OSPF...")
     gen_ospf(TOPOLOGY_JSON, output_dir=OUTPUT_CONFIGS_DIR)
     
-    # 3. VERIFICATION
-    print("\n[3/4] Vérification...")
+    # 3. VERIFICATION DU NOMBRE DE CONFIGURATIONS
+    print("\n[3/4] Vérification du nombre de configurations...")
     count = len(list(OUTPUT_CONFIGS_DIR.glob("*.cfg")))
+    if count != len(topo_data.get("routers", [])):
+        print(f"  [AVERTISSEMENT] Nombre de configurations générées ({count}) ne correspond pas au nombre de routeurs dans la topologie ({len(topo_data.get('routers', []))}).")
+    else:
+        print(f"  Nombre de configurations générées : {count}")
     
     # 4. INJECTION DANS GNS3
     print("\n[4/4] Injection dans le projet GNS3...")
@@ -85,9 +89,9 @@ def show_tutorial(root):
     """
     tuto = tk.Toplevel(root)
     tuto.title("Guide de préparation GNS3")
-    tuto.geometry("600x650") # Hauteur ajustée pour les nouvelles étapes
+    tuto.geometry("600x650") 
     
-    tuto.grab_set() # Modal pour forcer la lecture
+    tuto.grab_set()
     tuto.focus_force() 
 
     # Conteneur principal
@@ -100,8 +104,7 @@ def show_tutorial(root):
     step0 = ttk.LabelFrame(main_frame, text="1. Positionnement & Câblage", padding=5)
     step0.pack(fill=tk.X, pady=5)
     tk.Label(step0, justify=tk.LEFT, wraplength=550, text=(
-        "Placez vos routeurs dans l'espace de travail et reliez-les entre eux (câblez les interfaces).\n"
-        "C'est la base de la topologie physique."
+        "Placez vos routeurs dans l'espace de travail et reliez-les entre eux (câblez les interfaces)."
     )).pack(anchor="w")
 
     # --- ETAPE 2 : LES RECTANGLES ---
@@ -128,7 +131,7 @@ def show_tutorial(root):
     
     tk.Label(step2, justify=tk.LEFT, wraplength=550, text=(
         "Clic-Droit sur chaque rectangle > 'Lower one layer'.\n"
-        "Sinon, les routeurs ne seront pas détectés dedans."
+        "Sinon, les routeurs seront cachés par le rectangle."
     )).pack(anchor="w")
 
     # --- ETAPE 4 : EXTINCTION ---
@@ -147,7 +150,7 @@ def show_tutorial(root):
     
     def open_image():
         if tuto_img_path.exists():
-            # Ouvre l'image avec le visualiseur par défaut du système (Windows)
+            # Ouvre l'image avec le visualiseur par défaut du système 
             os.startfile(tuto_img_path)
         else:
             messagebox.showinfo("Image manquante", f"L'image d'aide n'a pas été trouvée dans :\n{assets_dir}")
@@ -199,10 +202,9 @@ def main_gui():
         def body(self, master):
             tk.Label(master, text="Choisissez le format des adresses Loopback :").pack(pady=5)
             self.var = tk.StringVar(value="simple")
-            
+
+            tk.Radiobutton(master, text="Avec AS (2000:2:AS::R1)", variable=self.var, value="with_as").pack(anchor='w')
             tk.Radiobutton(master, text="Simple (2000::R1)", variable=self.var, value="simple").pack(anchor='w')
-            tk.Radiobutton(master, text="Avec AS - Séparé (2000:2:AS::R1)", variable=self.var, value="with_as").pack(anchor='w')
-            tk.Radiobutton(master, text="Complet (2000:1:AS::R1)", variable=self.var, value="full").pack(anchor='w')
             
             return None # initial focus
 

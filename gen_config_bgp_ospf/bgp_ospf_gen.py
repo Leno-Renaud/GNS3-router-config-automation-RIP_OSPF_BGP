@@ -153,7 +153,7 @@ def generate_bgp_configs(topology_file, output_dir="configs"):
         
         with open(out_path / f"{name}.cfg", "w") as f:
             f.write(config)
-        print(f"  Saved {name}.cfg ({'iBGP' if any(n['is_ibgp'] for n in unique_neighbors) else ''} {'eBGP' if any(not n['is_ibgp'] for n in unique_neighbors) else ''})")
+        print(f"  Saved {name}.cfg ({'iBGP' if any(n['is_ibgp'] for n in unique_neighbors) else ''}{' eBGP' if any(not n['is_ibgp'] for n in unique_neighbors) else ''})")
 
 if __name__ == "__main__":
     topo_file = Path(__file__).parent / "topology.json"
