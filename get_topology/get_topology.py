@@ -3,6 +3,19 @@ import ipaddress
 from pathlib import Path
 from collections import defaultdict
 import re
+import sys
+import os
+
+# Add parent directory to path to allow importing utils
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+try:
+    from utils import get_router_number
+except ImportError:
+    print("Warning: Could not import utils. Using local fallback for get_router_number.")
+    def get_router_number(router_name):
+        numbers = re.findall(r'\d+', router_name)
+        return int(numbers[-1]) if numbers else 1
 
 # --- MAPPING COULEUR -> PROTOCOLE/AS ---
 COLOR_TO_PROTOCOL = {
@@ -133,7 +146,7 @@ def assign_routers_to_as(nodes_data, rectangles):
 
 
 # --- FONCTION PRINCIPALE ---
-def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_name="topology.json"):
+def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_name="topology.json", loopback_format="simple"):
     """
     Extrait la topologie d'un fichier GNS3 et génère un fichier topology.json
     
@@ -239,43 +252,80 @@ def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_n
             router_to_as[a] = a_info
             router_to_as[b] = b_info
 
-    # --- 3. LOGIQUE D'ADRESSAGE ---
-    base_net = ipaddress.ip_network(ip_base)
+    # --- 3. LOGIQUE D'ADRESSAGE MNÉMOTECHNIQUE AVEC AS ---
+    # format: 2000:1:<AS>:<ID1>:<ID2>::<ID_LOCAL>
+    
+    base_net_obj = ipaddress.ip_network(ip_base, strict=False)
+    base_parts = str(base_net_obj.network_address).split('::')[0]
+    
     interfaces_cfg = defaultdict(list)
     networks = defaultdict(set)
-    current_net = base_net
 
+    # 3a. IDs
+    node_to_id = {}
+    for name in routers_list:
+        node_to_id[name] = get_router_number(name)
+
+    # 3b. Links
     for link in links:
         a, a_iface_name = link["a"], link["a_iface"]
         b, b_iface_name = link["b"], link["b_iface"]
 
-        ip_a = ipaddress.IPv6Address(int(current_net.network_address) + 1)
-        ip_b = ipaddress.IPv6Address(int(current_net.network_address) + 2)
+        id_a_int = node_to_id[a]
+        id_b_int = node_to_id[b]
+        
+        info_a = router_to_as.get(a)
+        info_b = router_to_as.get(b)
+        
+        as_a = int(info_a['as_number']) if info_a and info_a.get('as_number') else 0
+        as_b = int(info_b['as_number']) if info_b and info_b.get('as_number') else 0
+
+        # Cas 1 : Intra-AS (Même AS et AS != 0)
+        if as_a == as_b and as_a != 0:
+            low_id, high_id = sorted((id_a_int, id_b_int))
+            # Format: Prefix : AS : ID1 : ID2 :: ID_Local
+            # Note: On utilise l'écriture décimale brute dans le champ hexadécimal pour la lisibilité
+            # ex: AS=100 -> "...:100:..." (qui vaut techniquement 0x100 = 256, mais lisible par l'humain comme 100)
+            # Attention: Cela limite "visuellement" les ID/AS à 9999 (4 chiffres hex max = FFFF)
+            subnet_prefix_str = f"{base_parts}:{as_a}:{low_id}:{high_id}::"
+            subnet_cidr = f"{subnet_prefix_str}/80"
+            
+            ip_a_str = f"{subnet_prefix_str}{id_a_int}"
+            ip_b_str = f"{subnet_prefix_str}{id_b_int}"
+            prefix_len = 80
+
+        else:
+            low_as, high_as = sorted((as_a, as_b))
+            low_id, high_id = sorted((id_a_int, id_b_int))
+            
+            # Format: Prefix : 0 : AS1 : AS2 : ID1 : ID2 :: ID_Local
+            subnet_prefix_str = f"{base_parts}:0:{low_as}:{high_as}:{low_id}:{high_id}::"
+            subnet_cidr = f"{subnet_prefix_str}/112"
+            
+            ip_a_str = f"{subnet_prefix_str}{id_a_int}"
+            ip_b_str = f"{subnet_prefix_str}{id_b_int}"
+            prefix_len = 112
 
         # Configuration pour le routeur A
         interfaces_cfg[a].append({
             "name": a_iface_name,
-            "ip": str(ip_a),
-            "prefix": current_net.prefixlen
+            "ip": ip_a_str,
+            "prefix": prefix_len
         })
-        networks[a].add(str(current_net))
+        networks[a].add(subnet_cidr)
 
         # Configuration pour le routeur B
         interfaces_cfg[b].append({
             "name": b_iface_name,
-            "ip": str(ip_b),
-            "prefix": current_net.prefixlen
+            "ip": ip_b_str,
+            "prefix": prefix_len
         })
-        networks[b].add(str(current_net))
-
-        # Calcul du prochain sous-réseau
-        next_net_int = int(current_net.network_address) + current_net.num_addresses
-        next_addr = ipaddress.ip_address(next_net_int)
-        current_net = ipaddress.ip_network(f"{next_addr}/{current_net.prefixlen}", strict=False)
+        networks[b].add(subnet_cidr)
 
     # --- 3b. EXPORT TOPOLOGY.JSON ---
     topology_data = {
         "ip_base": ip_base,
+        "loopback_format": loopback_format,
         "routers": [],
         "links": []
     }
