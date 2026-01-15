@@ -1,10 +1,6 @@
-<<<<<<< Updated upstream
 from get_topology.get_topology import extract_topology
-=======
 import json
 from pathlib import Path
-from InjectionCFG.inject_cfgs import extract_topology
->>>>>>> Stashed changes
 from codes_rip.cfg_generation_rip import cfg_generation_rip
 from codes_ospf.ospfv3_gen import ospfv3_gen
 
