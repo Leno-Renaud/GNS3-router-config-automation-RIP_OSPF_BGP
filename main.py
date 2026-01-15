@@ -1,5 +1,6 @@
 from InjectionCFG.inject_cfgs import extract_topology
 from codes_rip.cfg_generation_rip import cfg_generation_rip
+from codes_ospf.ospfv3_gen import ospfv3_gen
 
 def main():
     gns3_project = r"C:\Users\Hector\Desktop\INSA Lyon\3A-TC\S1\GNS Projet\blank_project\blank_project.gns3"
@@ -11,4 +12,9 @@ def main():
     extract_topology(gns3_project, ip_base)
 
     ripDict = cfg_generation_rip()
-    print(ripDict)
+    ospfDict = ospfv3_gen()
+    print("RIpDict", ripDict)
+    print("OSPF", ospfDict)
+
+
+main()
