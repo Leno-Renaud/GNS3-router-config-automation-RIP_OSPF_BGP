@@ -18,7 +18,7 @@ def generate_router_id(router_name):
 def cfg_generation_bgp(topology, output_dir="."):
     with open(topology) as f:
         topo = json.load(f)
-
+    
     routers_data = {r["name"]: r for r in topo["routers"]}
     
     template = Template(open("router_bgp.j2").read())

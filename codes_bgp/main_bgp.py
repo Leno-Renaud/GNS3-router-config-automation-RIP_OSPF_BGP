@@ -19,9 +19,9 @@ def main():
     """
     # --- Configuration des paramètres ---
     base_dir = Path(__file__).parent.absolute()
-    gns3_project_file = r"C:\Users\Hector\Desktop\INSA Lyon\3A-TC\S1\GNS Projet\blank_project\blank_project.gns3"
-    ip_base = "2000:1::/64"
-    asn_base = 65000
+    # gns3_project_file = r"C:\Users\Hector\Desktop\INSA Lyon\3A-TC\S1\GNS Projet\blank_project\blank_project.gns3"
+    # ip_base = "2000:1::/64"
+    # asn_base = 65000
     topology_filename = "topology_bgp.json"
     
     # Extraire la topologie avec ASN et voisins
