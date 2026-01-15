@@ -259,7 +259,7 @@ def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_n
             "ip": str(ip_a),
             "prefix": current_net.prefixlen
         })
-        networks[a].add(str(current_net.network_address))
+        networks[a].add(str(current_net))
 
         # Configuration pour le routeur B
         interfaces_cfg[b].append({
@@ -267,7 +267,7 @@ def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_n
             "ip": str(ip_b),
             "prefix": current_net.prefixlen
         })
-        networks[b].add(str(current_net.network_address))
+        networks[b].add(str(current_net))
 
         # Calcul du prochain sous-réseau
         next_net_int = int(current_net.network_address) + current_net.num_addresses

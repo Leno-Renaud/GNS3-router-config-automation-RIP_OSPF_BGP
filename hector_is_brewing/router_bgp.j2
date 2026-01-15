@@ -1,0 +1,49 @@
+hostname {{ router_name }}
+!
+ipv6 unicast-routing
+ipv6 cef
+!
+interface Loopback0
+ no ip address
+ ipv6 address {{ loopback_ip }}/128
+ ipv6 enable
+!
+{% for iface in interfaces %}
+interface {{ iface.name }}
+ no ip address
+ ipv6 nd dad attempts 0
+ ipv6 address {{ iface.ip }}/{{ iface.prefix }}
+ ipv6 enable
+ no shutdown
+!
+{% endfor %}
+!
+router bgp {{ asn }}
+ bgp router-id {{ router_id }}
+ bgp log-neighbor-changes
+ no bgp default ipv4-unicast
+ !
+ {% for neighbor in neighbors %}
+ neighbor {{ neighbor.ip }} remote-as {{ neighbor.asn }}
+ neighbor {{ neighbor.ip }} description to_{{ neighbor.name }}
+ {% if neighbor.is_ibgp %}
+ neighbor {{ neighbor.ip }} update-source Loopback0
+ {% endif %}
+ {% endfor %}
+ !
+ address-family ipv6 unicast
+ {% for neighbor in neighbors %}
+  neighbor {{ neighbor.ip }} activate
+ {% endfor %}
+ {% if networks %}
+  ! Networks to advertise
+  {% for net in networks %}
+  network {{ net }}
+  {% endfor %}
+ {% endif %}
+  network {{ loopback_ip }}/128
+  redistribute connected
+ exit-address-family
+!
+end
+write memory

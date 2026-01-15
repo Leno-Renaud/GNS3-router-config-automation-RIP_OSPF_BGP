@@ -7,7 +7,7 @@ import glob
 PROJECT_DIR = r"C:\Users\Hector\Desktop\INSA Lyon\3A-TC\S1\GNS Projet\blank_project"
 GNS3_FILE = os.path.join(PROJECT_DIR, "blank_project.gns3")
 DYNAMIPS_DIR = os.path.join(PROJECT_DIR, "project-files", "dynamips")
-CFG_DIR = r"C:\Users\Hector\Desktop\INSA Lyon\3A-TC\S1\GNS Projet\projet-gns\codes_rip\configs"
+CFG_DIR = r"C:\Users\Hector\Desktop\INSA Lyon\3A-TC\S1\GNS Projet\projet-gns\hector_is_brewing\configs"
 
 # Charger le projet GNS3
 with open(GNS3_FILE, "r", encoding="utf-8") as f:
