@@ -4,11 +4,7 @@ import shutil
 import glob
 
 def injection_cfg(project_dir=None, configs_dir=None):
-    # Chemin du Projet GNS (à modifier)
-    if project_dir is None:
-        PROJECT_DIR = r"C:\Users\Hector\Desktop\INSA Lyon\3A-TC\S1\GNS Projet\blank_project"
-    else:
-        PROJECT_DIR = project_dir
+    PROJECT_DIR = project_dir
 
     GNS3_FILE = os.path.join(PROJECT_DIR, "blank_project.gns3") 
     # Try to find the .gns3 file dynamically if specific name not guaranteed
@@ -18,10 +14,7 @@ def injection_cfg(project_dir=None, configs_dir=None):
 
     DYNAMIPS_DIR = os.path.join(PROJECT_DIR, "project-files", "dynamips")
 
-    if configs_dir is None:
-        CFG_DIR = r"C:\Users\Hector\Desktop\INSA Lyon\3A-TC\S1\GNS Projet\projet-gns\hector_is_brewing\configs"
-    else:
-        CFG_DIR = configs_dir
+    CFG_DIR = configs_dir
 
     # Charger le projet GNS3
     with open(GNS3_FILE, "r", encoding="utf-8") as f:
@@ -58,7 +51,7 @@ def injection_cfg(project_dir=None, configs_dir=None):
             print(f"[ERREUR] {router}: aucun i*_startup-config.cfg trouvé dans {node_dir}")
             continue
 
-        # En général un seul fichier
+        # Un seul fichier cfg attendu
         dst = candidates[0]
         
         shutil.copy(src, dst)

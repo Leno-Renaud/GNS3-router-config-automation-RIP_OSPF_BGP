@@ -66,35 +66,39 @@ def generate_bgp_configs(topology_file, output_dir="configs"):
 
         # eBGP Logic: Different AS -> Peer physically
         if asA != asB:
-            # A -> B
-            rA["bgp_neighbors"].append({
-                "name": b_name,
-                "ip": ipB,
-                "asn": asB,
-                "is_ibgp": False
-            })
-            # B -> A
-            rB["bgp_neighbors"].append({
-                "name": a_name,
-                "ip": ipA,
-                "asn": asA,
-                "is_ibgp": False
-            })
+            # Setup side A if it is RIP
+            if rA.get("protocol") == "RIP":
+                rA["bgp_neighbors"].append({
+                    "name": b_name,
+                    "ip": ipB,
+                    "asn": asB,
+                    "is_ibgp": False
+                })
+                # Disable RIP on this interface (eBGP link)
+                for iface in rA["interfaces"]:
+                    if iface["name"] == link["a_iface"]:
+                        iface["rip_enabled"] = False
             
-            # Disable RIP on these interfaces (eBGP link)
-            for iface in rA["interfaces"]:
-                if iface["name"] == link["a_iface"]:
-                    iface["rip_enabled"] = False
-            for iface in rB["interfaces"]:
-                if iface["name"] == link["b_iface"]:
-                    iface["rip_enabled"] = False
+            # Setup side B if it is RIP
+            if rB.get("protocol") == "RIP":
+                rB["bgp_neighbors"].append({
+                    "name": a_name,
+                    "ip": ipA,
+                    "asn": asA,
+                    "is_ibgp": False
+                })
+                # Disable RIP on this interface (eBGP link)
+                for iface in rB["interfaces"]:
+                    if iface["name"] == link["b_iface"]:
+                        iface["rip_enabled"] = False
 
-    # 2. Process Full Mesh for iBGP (Loopback Peering) within same AS
-    router_names = list(routers.keys())
-    for i in range(len(router_names)):
-        for j in range(i + 1, len(router_names)):
-            nameA = router_names[i]
-            nameB = router_names[j]
+    # 2. Process Full Mesh for iBGP (Loopback Peering) within same AS for RIP routers
+    rip_router_names = [n for n, r in routers.items() if r.get("protocol") == "RIP"]
+
+    for i in range(len(rip_router_names)):
+        for j in range(i + 1, len(rip_router_names)):
+            nameA = rip_router_names[i]
+            nameB = rip_router_names[j]
             
             rA = routers[nameA]
             rB = routers[nameB]
@@ -119,23 +123,17 @@ def generate_bgp_configs(topology_file, output_dir="configs"):
     out_path = Path(output_dir)
     os.makedirs(out_path, exist_ok=True)
     
-    # Use templates from root/templates if it exists, else fallback to local
-    root_template = Path(__file__).parent.parent / "templates" / "router_bgp_rip.j2"
-    if root_template.exists():
-        template_path = root_template
-    else:
-        template_path = Path(__file__).parent / "router_bgp_rip.j2"
+    # Use templates from local directory
+    template_path = Path(__file__).parent / "router_bgp_rip.j2"
         
     with open(template_path) as f:
         template = Template(f.read())
         
     print(f"Generating BGP+RIP configs in {out_path}...")
     
-    for name, r in routers.items():
-        # FILTER: Only generate for RIP routers
-        if r.get("protocol") != "RIP":
-            continue
-
+    for name in rip_router_names:
+        r = routers[name]
+        
         # Remove duplicates in neighbors
         unique_neighbors = {n["ip"]: n for n in r["bgp_neighbors"]}.values()
         
@@ -160,7 +158,7 @@ def generate_bgp_configs(topology_file, output_dir="configs"):
 if __name__ == "__main__":
     topo_file = Path(__file__).parent / "topology.json"
     if not topo_file.exists():
-        print("Error: topology.json not found in hector_is_brewing/")
+        print("Error: topology.json not found in local directory.")
         sys.exit(1)
         
     generate_bgp_configs(topo_file)

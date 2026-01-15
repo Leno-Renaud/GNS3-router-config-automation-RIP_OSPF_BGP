@@ -29,10 +29,10 @@ def get_interface_name(adapter, port):
     Traduit les numéros de port GNS3 en noms d'interfaces Cisco IOS.
     A adapter selon le modèle de routeur (ici optimisé pour c7200).
     """
-    # Sur un c7200, l'adaptateur 0 est souvent le FastEthernet intégré
+    # Sur un c7200, l'adaptateur 0 est le FastEthernet intégré
     if adapter == 0:
         return f"FastEthernet{adapter}/{port}"
-    # Les adaptateurs suivants (1, 2...) sont souvent des modules Gigabit
+    # Les adaptateurs suivants (1, 2...) sont des modules GigabitEthernet
     else:
         return f"GigabitEthernet{adapter}/{port}"
 
@@ -90,6 +90,7 @@ def extract_drawings(gns3_data):
 def point_in_rectangle(px, py, rect):
     """
     Vérifie si un point (px, py) est dans un rectangle.
+    Les routeurs sont considérés comme des points.
     """
     x_min = rect["x"]
     x_max = rect["x"] + rect["width"]
@@ -101,54 +102,50 @@ def point_in_rectangle(px, py, rect):
 
 def assign_routers_to_as(nodes_data, rectangles):
     """
-    Assigne chaque routeur à un AS basé sur les rectangles qui le contiennent.
-    Un routeur peut être dans plusieurs rectangles:
-    - Un rectangle RIP/OSPF (définit protocol et as_number)
-    - Un rectangle eBGP en plus (ajoute ebgp: True)
+    Associe chaque routeur à un AS et un protocole selon les zones dessinées dans GNS3.
+    Les rectangles colorés (Rouge=RIP, Vert=OSPF) définissent le protocole IGP et l'AS.
     """
     router_to_as = {}
     
     for node in nodes_data:
-        if node.get("node_type") == "dynamips":  # C'est un routeur
-            name = node["name"]
-            x = node["x"]
-            y = node["y"]
+        # On ne traite que les routeurs (type "dynamips")
+        if node.get("node_type") != "dynamips":
+            continue
+
+        name = node["name"]
+        x, y = node["x"], node["y"]
+        
+        # Trouver les rectangles contenant ce routeur
+        containing_rects = [r for r in rectangles if point_in_rectangle(x, y, r)]
+        
+        # Valeurs par défaut
+        protocol = "UNKNOWN"
+        as_number = None
+        has_ebgp = False
+        
+        # Analyse des rectangles
+        for rect in containing_rects:
+            r_proto = rect.get("protocol")
             
-            # Trouver TOUS les rectangles qui contiennent ce routeur
-            containing_rects = []
-            for rect in rectangles:
-                if point_in_rectangle(x, y, rect):
-                    containing_rects.append(rect)
-            
-            # Initialiser avec UNKNOWN
-            protocol = "UNKNOWN"
-            as_number = None
-            has_ebgp = False
-            
-            # Traiter les rectangles
-            for rect in containing_rects:
-                if rect["protocol"] == "eBGP":
-                    has_ebgp = True
-                elif rect["protocol"] in ["RIP", "OSPF"]:
-                    # Prendre le premier rectangle RIP/OSPF trouvé
-                    if protocol == "UNKNOWN":
-                        protocol = rect["protocol"]
-                        as_number = rect["as_number"]
-            
-            # Construire la réponse
-            router_to_as[name] = {
-                "protocol": protocol,
-                "as_number": as_number,
-                "ebgp": has_ebgp
-            }
+            if r_proto in ["RIP", "OSPF"]:
+                # On privilégie le premier protocole trouvé si aucun n'est encore défini
+                if protocol == "UNKNOWN":
+                    protocol = r_proto
+                    as_number = rect.get("as_number")
+        
+        router_to_as[name] = {
+            "protocol": protocol,
+            "as_number": as_number,
+            "ebgp": has_ebgp
+        }
     
     return router_to_as
 
 
 # --- FONCTION PRINCIPALE ---
-def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_name="topology.json", loopback_format="simple"):
+def get_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_name="topology.json", loopback_format="simple"):
     """
-    Extrait la topologie d'un fichier GNS3 et génère un fichier topology.json
+    Extrait la topologie d'un fichier .gns3 et génère un fichier topology.json
     
     Args:
         gns3_file (str): Chemin vers le fichier .gns3
@@ -183,7 +180,7 @@ def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_n
     id_to_name = {}
     routers_list = []
 
-    # GNS3 stocke parfois les nœuds directement sous la racine ou sous "topology"
+    # GNS3 stocke les nœuds directement sous la racine ou sous "topology"
     nodes_data = gns3_data.get("topology", {}).get("nodes", gns3_data.get("nodes", []))
     links_data = gns3_data.get("topology", {}).get("links", gns3_data.get("links", []))
 
@@ -286,7 +283,6 @@ def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_n
             # Format: Prefix : AS : ID1 : ID2 :: ID_Local
             # Note: On utilise l'écriture décimale brute dans le champ hexadécimal pour la lisibilité
             # ex: AS=100 -> "...:100:..." (qui vaut techniquement 0x100 = 256, mais lisible par l'humain comme 100)
-            # Attention: Cela limite "visuellement" les ID/AS à 9999 (4 chiffres hex max = FFFF)
             subnet_prefix_str = f"{base_parts}:{as_a}:{low_id}:{high_id}::"
             subnet_cidr = f"{subnet_prefix_str}/80"
             
@@ -361,13 +357,3 @@ def extract_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_n
     print(f"\nTerminé ! La topologie a été extraite depuis {gns3_path}")
 
 
-def get_topology():
-    # Test avec le projet blank_project
-    gns3_project = r"C:\Users\Hector\Desktop\INSA Lyon\3A-TC\S1\GNS Projet\blank_project\blank_project.gns3"
-    ip_base = "2000:1::/64"
-    
-    print("=" * 60)
-    print("Test d'extraction de topologie")
-    print("=" * 60)
-    
-    extract_topology(gns3_project, ip_base)
