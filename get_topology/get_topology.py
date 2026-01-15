@@ -7,8 +7,7 @@ import re
 # --- MAPPING COULEUR -> PROTOCOLE/AS ---
 COLOR_TO_PROTOCOL = {
     "ff0000": "RIP",      # Rouge
-    "0000ff": "OSPF",     # Bleu
-    "00ff00": "eBGP",     # Vert
+    "00ff00": "OSPF",     # Vert
 }
 
 # --- FONCTION UTILITAIRE : Traduction GNS3 -> Cisco ---

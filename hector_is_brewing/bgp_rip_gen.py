@@ -124,18 +124,31 @@ def generate_bgp_configs(topology_file, output_dir="configs"):
                 })
 
     # Generate Configs
-    out_path = Path(__file__).parent / output_dir
+    out_path = Path(output_dir)
     os.makedirs(out_path, exist_ok=True)
     
-    template_path = Path(__file__).parent / "router_bgp_rip.j2"
+    # Use templates from root/templates if it exists, else fallback to local
+    root_template = Path(__file__).parent.parent / "templates" / "router_bgp_rip.j2"
+    if root_template.exists():
+        template_path = root_template
+    else:
+        template_path = Path(__file__).parent / "router_bgp_rip.j2"
+        
     with open(template_path) as f:
         template = Template(f.read())
         
     print(f"Generating BGP+RIP configs in {out_path}...")
     
     for name, r in routers.items():
+        # FILTER: Only generate for RIP routers
+        if r.get("protocol") != "RIP":
+            continue
+
         # Remove duplicates in neighbors
         unique_neighbors = {n["ip"]: n for n in r["bgp_neighbors"]}.values()
+        
+        # Determine if router is a Border Router (has eBGP neighbors)
+        is_border = any(not n["is_ibgp"] for n in unique_neighbors)
         
         config = template.render(
             router_name=name,
@@ -144,12 +157,13 @@ def generate_bgp_configs(topology_file, output_dir="configs"):
             asn=r["as_number"],
             interfaces=r["interfaces"],
             neighbors=unique_neighbors,
-            networks=r.get("networks", [])
+            networks=r.get("networks", []),
+            is_border=is_border
         )
         
         with open(out_path / f"{name}.cfg", "w") as f:
             f.write(config)
-        print(f"  Saved {name}.cfg ({'iBGP' if any(n['is_ibgp'] for n in unique_neighbors) else ''} {'eBGP' if any(not n['is_ibgp'] for n in unique_neighbors) else ''})")
+        print(f"  Saved {name}.cfg ({'iBGP' if any(n['is_ibgp'] for n in unique_neighbors) else ''} {'eBGP' if is_border else ''})")
 
 if __name__ == "__main__":
     topo_file = Path(__file__).parent / "topology.json"
