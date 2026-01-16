@@ -1,6 +1,6 @@
 {
   "ip_base": "2000:1::/64",
-  "loopback_format": "simple",
+  "loopback_format": "with_as",
   "routers": [
     {
       "name": "R1",
