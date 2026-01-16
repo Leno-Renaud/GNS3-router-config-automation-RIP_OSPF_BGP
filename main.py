@@ -10,7 +10,7 @@ import json
 import os
 import shutil
 import tkinter as tk
-from tkinter import filedialog, simpledialog, messagebox, ttk
+from tkinter import filedialog, simpledialog, messagebox, ttk, PhotoImage
 from pathlib import Path
 
 # Imports des modules
@@ -174,6 +174,15 @@ def show_tutorial(root):
 def main_gui():
     root = tk.Tk()
     root.withdraw() # Cacher la fenêtre principale vide
+
+    # Icône barre des tâches (Windows/macOS)
+    try:
+        icon_path = Path(__file__).parent / "assets" / "cameleon.png"
+        if icon_path.exists():
+            root._icon_img = PhotoImage(file=str(icon_path))  # éviter le GC
+            root.iconphoto(True, root._icon_img)
+    except Exception as e:
+        print(f"[WARN] Impossible de charger l'icône: {e}")
     
     # 0. Afficher le tutoriel
     show_tutorial(root)
