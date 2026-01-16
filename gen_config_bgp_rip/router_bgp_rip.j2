@@ -34,10 +34,20 @@ router bgp {{ asn }}
  !
  {% for neighbor in neighbors %}
  neighbor {{ neighbor.ip }} remote-as {{ neighbor.asn }}
- neighbor {{ neighbor.ip }} description to_{{ neighbor.name }}
+ neighbor {{ neighbor.ip }} description to_{{ neighbor.name }}_{{ neighbor.relationship|default('peer') }}
  {% if neighbor.is_ibgp %}
  neighbor {{ neighbor.ip }} update-source Loopback0
  neighbor {{ neighbor.ip }} next-hop-self
+ {% if options.policies_enabled %}
+  neighbor {{ neighbor.ip }} send-community
+ {% endif %}
+ {% else %}
+ {# eBGP CONFIGURATION #}
+ {% if options.policies_enabled %}
+  neighbor {{ neighbor.ip }} send-community
+  neighbor {{ neighbor.ip }} route-map MAP_FROM_{{ neighbor.relationship|upper }} in
+  neighbor {{ neighbor.ip }} route-map MAP_TO_{{ neighbor.relationship|upper }} out
+ {% endif %}
  {% endif %}
  {% endfor %}
  !
@@ -53,8 +63,60 @@ router bgp {{ asn }}
  {% endif %}
   network {{ loopback_ip }}/128
   redistribute connected
+  {% if options.secure_redist %}
+  redistribute rip RIPNG route-map RIP_TO_BGP
+  {% else %}
   redistribute rip RIPNG
+  {% endif %}
  exit-address-family
 !
+{% if options.secure_redist %}
+! Route-map for administrative control of RIP redistribution
+route-map RIP_TO_BGP permit 10
+!
+{% endif %}
+{% if options.policies_enabled %}
+!
+! --- GAO-REXFORD POLICIES ---
+! Community Definitions
+! 100:10 = Routes from CUSTOMER
+! 100:20 = Routes from PEER
+! 100:30 = Routes from PROVIDER
+!
+ip bgp-community new-format
+!
+! community-lists
+ip community-list standard FROM_CUSTOMER permit {{ asn }}:10
+ip community-list standard FROM_PEER     permit {{ asn }}:20
+ip community-list standard FROM_PROVIDER permit {{ asn }}:30
+!
+! INBOUND POLICIES (Prefer Customer > Peer > Provider)
+!
+route-map MAP_FROM_CUSTOMER permit 10
+ set local-preference 200
+ set community {{ asn }}:10
+!
+route-map MAP_FROM_PEER permit 10
+ set local-preference 100
+ set community {{ asn }}:20
+!
+route-map MAP_FROM_PROVIDER permit 10
+ set local-preference 50
+ set community {{ asn }}:30
+!
+! OUTBOUND POLICIES (Valley-Free Rule)
+!
+! To Customer: Advertise EVERYTHING (Customer, Peer, Provider, Self)
+route-map MAP_TO_CUSTOMER permit 10
+!
+! To Peer: Advertise ONLY Customer routes (and Self)
+route-map MAP_TO_PEER permit 10
+ match community FROM_CUSTOMER
+!
+! To Provider: Advertise ONLY Customer routes (and Self)
+route-map MAP_TO_PROVIDER permit 10
+ match community FROM_CUSTOMER
+!
+{% endif %}
 end
 write memory

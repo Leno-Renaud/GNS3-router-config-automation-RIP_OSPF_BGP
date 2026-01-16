@@ -13,7 +13,9 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 from utils import get_router_id, get_loopback_ip
 
-def generate_bgp_configs(topology_file, output_dir="configs"):
+def generate_bgp_configs(topology_file, output_dir="configs", options=None):
+    if options is None:
+        options = {}
     print(f"Loading topology from {topology_file}...")
     with open(topology_file, 'r') as f:
         topo = json.load(f)
@@ -34,6 +36,10 @@ def generate_bgp_configs(topology_file, output_dir="configs"):
         # Initialize OSPF enabled on all interfaces by default (will be disabled for eBGP links)
         for iface in r.get("interfaces", []):
             iface["ospf_enabled"] = True
+            # Apply OSPF Costs if defined in options
+            cost_map = options.get("ospf_costs", {}).get(name, {})
+            if iface["name"] in cost_map:
+                iface["ospf_cost"] = cost_map[iface["name"]]
 
     # Infer neighbors
     # 1. Process Links for eBGP (Direct Physical Peering) and OSPF disabling
@@ -134,12 +140,54 @@ def generate_bgp_configs(topology_file, output_dir="configs"):
         
     print(f"Generating BGP+OSPF configs in {out_path}...")
     
+    relations = options.get("bgp_relations", {})
+
     for name in ospf_router_names:
         r = routers[name]
-
-        # Remove duplicates in neighbors (in case of multiple links)
-        # Using dictionary comprehension to unique-ify by IP
-        unique_neighbors = {n["ip"]: n for n in r["bgp_neighbors"]}.values()
+        
+        # Enrich neighbors with relationship data
+        # Default relationship is 'peer'
+        neighbors_list = []
+        # Unique-ification logic first
+        seen_ips = set()
+        for n in r["bgp_neighbors"]:
+             if n["ip"] in seen_ips:
+                 continue
+             seen_ips.add(n["ip"])
+             
+             # Determine relationship
+             # Key format in relations dict: "AS1-AS2" (sorted) or check both directions
+             local_as = str(r["as_number"])
+             remote_as = str(n["asn"])
+             
+             rel_type = "peer" # Default
+             
+             if not n["is_ibgp"]:
+                 # Check explicit configuration
+                 # User might have stored "100-200" = "customer" (meaning 100 is customer of 200 ??? No, usually context dependent)
+                 # Let's assume input was "AS A is RELATION of AS B"
+                 # We need to find the entry matching our pair
+                 
+                 # Check direct key "local-remote"
+                 key1 = f"{local_as}-{remote_as}"
+                 if key1 in relations:
+                     # If config says "100-200": "customer" -> 100 IS CUSTOMER OF 200
+                     # So for us (100), the remote (200) is our PROVIDER
+                     val = relations[key1]
+                     if val == "customer": rel_type = "provider"
+                     elif val == "provider": rel_type = "customer"
+                     else: rel_type = "peer"
+                 
+                 # Check reverse key "remote-local"
+                 key2 = f"{remote_as}-{local_as}"
+                 if key2 in relations:
+                     # If config says "200-100": "customer" -> 200 IS CUSTOMER OF 100
+                     # So for us (100), the remote (200) is our CUSTOMER
+                     val = relations[key2]
+                     rel_type = val # Direct mapping in this direction
+             
+             n["relationship"] = rel_type
+             neighbors_list.append(n)
         
         config = template.render(
             router_name=name,
@@ -147,13 +195,14 @@ def generate_bgp_configs(topology_file, output_dir="configs"):
             loopback_ip=r["loopback_ip"],
             asn=r["as_number"],
             interfaces=r["interfaces"],
-            neighbors=unique_neighbors,
-            networks=r.get("networks", [])
+            neighbors=neighbors_list,
+            networks=r.get("networks", []),
+            options=options
         )
         
         with open(out_path / f"{name}.cfg", "w") as f:
             f.write(config)
-        print(f"  Saved {name}.cfg ({'iBGP' if any(n['is_ibgp'] for n in unique_neighbors) else ''}{' eBGP' if any(not n['is_ibgp'] for n in unique_neighbors) else ''})")
+        print(f"  Saved {name}.cfg ({'iBGP' if any(n['is_ibgp'] for n in neighbors_list) else ''}{' eBGP' if any(not n['is_ibgp'] for n in neighbors_list) else ''})")
 
 if __name__ == "__main__":
     topo_file = Path(__file__).parent / "topology.json"

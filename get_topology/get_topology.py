@@ -55,9 +55,10 @@ def extract_drawings(gns3_data):
         height_match = re.search(r'height="(\d+)"', svg)
         
         # Extraire la couleur (stroke ou fill)
-        color_match = re.search(r'stroke="#([0-9a-f]+)"', svg)
+        # Supporte minuscules et majuscules pour le code hexadécimal
+        color_match = re.search(r'stroke="#([0-9a-fA-F]+)"', svg)
         if not color_match:
-            color_match = re.search(r'fill="#([0-9a-f]+)"', svg)
+            color_match = re.search(r'fill="#([0-9a-fA-F]+)"', svg)
         
         if width_match and height_match:
             width = int(width_match.group(1))
@@ -354,5 +355,6 @@ def get_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_name=
     print(f"Topologie exportée : {topology_file}")
 
     print(f"\nTerminé ! La topologie a été extraite depuis {gns3_path}")
+    return topology_data
 
 
