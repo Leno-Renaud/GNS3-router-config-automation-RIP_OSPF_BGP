@@ -10,7 +10,7 @@ import json
 import os
 import shutil
 import tkinter as tk
-from tkinter import filedialog, simpledialog, messagebox, ttk
+from tkinter import filedialog, simpledialog, messagebox, ttk, PhotoImage
 from pathlib import Path
 
 # Imports des modules
@@ -86,12 +86,22 @@ def run_automation(gns3_file_path, ip_prefix, loopback_format="simple", advanced
     return True, f"Succès ! {count} configurations générées et injectées."
 
 
+def _set_icon(win, icon_img):
+    """Apply app icon (taskbar/dock) to a Tk window."""
+    try:
+        if icon_img:
+            win.iconphoto(True, icon_img)
+    except Exception as e:
+        print(f"[WARN] Icon set failed: {e}")
+
+
 def show_tutorial(root):
     """
     Affiche une fenêtre d'aide expliquant comment préparer le projet GNS3.
     """
     tuto = tk.Toplevel(root)
     tuto.title("Guide de préparation GNS3")
+    _set_icon(tuto, getattr(root, "_icon_img", None))
     tuto.geometry("600x650") 
     
     tuto.grab_set()
@@ -173,9 +183,20 @@ def show_tutorial(root):
 
 def main_gui():
     root = tk.Tk()
+
+    # Icône barre des tâches/dock (Windows/macOS)
+    root._icon_img = None
+    try:
+        icon_path = Path(__file__).parent / "assets" / "cameleon.png"
+        if icon_path.exists():
+            root._icon_img = PhotoImage(file=str(icon_path))
+            root.iconphoto(True, root._icon_img)
+    except Exception as e:
+        print(f"[WARN] Impossible de charger l'icône: {e}")
+
     root.withdraw() # Cacher la fenêtre principale vide
-    
-    # 0. Afficher le tutoriel
+
+    # 0. Afficher le tutoriel (icône appliquée)
     show_tutorial(root)
 
     # 1. Sélectionner le fichier GNS3
@@ -230,6 +251,7 @@ def main_gui():
 
     config_win = tk.Toplevel(root)
     config_win.title("Configuration du Réseau")
+    _set_icon(config_win, getattr(root, "_icon_img", None))
     config_win.geometry("500x650")
     config_win.grab_set()
 
