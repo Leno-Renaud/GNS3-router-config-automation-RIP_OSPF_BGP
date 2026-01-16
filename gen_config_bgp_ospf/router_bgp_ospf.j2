@@ -45,22 +45,19 @@ router bgp {{ asn }}
  {% if neighbor.is_ibgp %}
  neighbor {{ neighbor.ip }} update-source Loopback0
  neighbor {{ neighbor.ip }} next-hop-self
- {% if options.policies_enabled %}
-  neighbor {{ neighbor.ip }} send-community
- {% endif %}
- {% else %}
- {# eBGP CONFIGURATION #}
- {% if options.policies_enabled %}
-  neighbor {{ neighbor.ip }} send-community
-  neighbor {{ neighbor.ip }} route-map MAP_FROM_{{ neighbor.relationship|upper }} in
-  neighbor {{ neighbor.ip }} route-map MAP_TO_{{ neighbor.relationship|upper }} out
- {% endif %}
  {% endif %}
  {% endfor %}
  !
  address-family ipv6 unicast
  {% for neighbor in neighbors %}
   neighbor {{ neighbor.ip }} activate
+  {% if options.policies_enabled %}
+   neighbor {{ neighbor.ip }} send-community
+   {% if not neighbor.is_ibgp %}
+   neighbor {{ neighbor.ip }} route-map MAP_FROM_{{ neighbor.relationship|upper }} in
+   neighbor {{ neighbor.ip }} route-map MAP_TO_{{ neighbor.relationship|upper }} out
+   {% endif %}
+  {% endif %}
  {% endfor %}
  {% if networks %}
   ! Networks to advertise
