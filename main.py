@@ -86,22 +86,12 @@ def run_automation(gns3_file_path, ip_prefix, loopback_format="simple", advanced
     return True, f"Succès ! {count} configurations générées et injectées."
 
 
-def _set_app_icon(win, icon_img):
-    """Applique l'icône (barre des tâches / dock) au toplevel donné."""
-    try:
-        if icon_img:
-            win.iconphoto(True, icon_img)
-    except Exception as e:
-        print(f"[WARN] Icon set failed: {e}")
-
-
 def show_tutorial(root):
     """
     Affiche une fenêtre d'aide expliquant comment préparer le projet GNS3.
     """
     tuto = tk.Toplevel(root)
     tuto.title("Guide de préparation GNS3")
-    _set_app_icon(tuto, getattr(root, "_icon_img", None))
     tuto.geometry("600x650") 
     
     tuto.grab_set()
@@ -194,7 +184,7 @@ def main_gui():
     except Exception as e:
         print(f"[WARN] Impossible de charger l'icône: {e}")
     
-    # 0. Afficher le tutoriel (icône appliquée aux toplevels)
+    # 0. Afficher le tutoriel
     show_tutorial(root)
 
     # 1. Sélectionner le fichier GNS3
@@ -249,7 +239,6 @@ def main_gui():
 
     config_win = tk.Toplevel(root)
     config_win.title("Configuration du Réseau")
-    _set_app_icon(config_win, getattr(root, "_icon_img", None))
     config_win.geometry("500x650")
     config_win.grab_set()
 
