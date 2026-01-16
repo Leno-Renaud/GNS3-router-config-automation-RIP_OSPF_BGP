@@ -237,15 +237,15 @@ def main_gui():
     lf_addr = ttk.LabelFrame(config_win, text="1. Adressage IPv6", padding=10)
     lf_addr.pack(fill="x", padx=10, pady=10)
     
-    ttk.Label(lf_addr, text="Préfixe des adresses physiques (ex: 2000:1::/64):").pack(anchor="w")
+    ttk.Label(lf_addr, text="Préfixe des adresses physiques (ex: 2000:1::/64)\n Format prévu : 2000:1:<AS>:<ID1>:<ID2>::<ID_local>/80:").pack(anchor="w")
     entry_ip = ttk.Entry(lf_addr)
     entry_ip.insert(0, "2000:1::/64")
     entry_ip.pack(fill="x", pady=5)
     
     ttk.Label(lf_addr, text="Format des adresses Loopback :").pack(anchor="w", pady=(10, 0))
     var_loopback = tk.StringVar(value="with_as")
-    ttk.Radiobutton(lf_addr, text="Avec AS (2000:2:AS::R1)", variable=var_loopback, value="with_as").pack(anchor="w")
-    ttk.Radiobutton(lf_addr, text="Simple (2000::R1)", variable=var_loopback, value="simple").pack(anchor="w")
+    ttk.Radiobutton(lf_addr, text="Avec AS (2000:2:<AS>::<ID_routeur>)", variable=var_loopback, value="with_as").pack(anchor="w")
+    ttk.Radiobutton(lf_addr, text="Simple (2000::<ID_routeur>)", variable=var_loopback, value="simple").pack(anchor="w")
 
     # Section 2: Options Avancées (Policies)
     lf_advanced = ttk.LabelFrame(config_win, text="2. Options Avancées", padding=10)
