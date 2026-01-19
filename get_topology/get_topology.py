@@ -2,6 +2,7 @@ import json
 import ipaddress
 from pathlib import Path
 from collections import defaultdict
+from utils import get_router_number
 import re
 import sys
 import os
@@ -9,25 +10,18 @@ import os
 # Add parent directory to path to allow importing utils
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-try:
-    from utils import get_router_number
-except ImportError:
-    print("Warning: Could not import utils. Using local fallback for get_router_number.")
-    def get_router_number(router_name):
-        numbers = re.findall(r'\d+', router_name)
-        return int(numbers[-1]) if numbers else 1
 
 # --- MAPPING COULEUR -> PROTOCOLE/AS ---
 COLOR_TO_PROTOCOL = {
     "ff0000": "RIP",      # Rouge
-    "00ff00": "OSPF",     # Vert
+    "00ff00": "OSPF"     # Vert
 }
 
 # --- FONCTION UTILITAIRE : Traduction GNS3 -> Cisco ---
 def get_interface_name(adapter, port):
     """
     Traduit les numéros de port GNS3 en noms d'interfaces Cisco IOS.
-    A adapter selon le modèle de routeur (ici optimisé pour c7200).
+    Valable ici pour routeurs c7200.
     """
     # Sur un c7200, l'adaptateur 0 est le FastEthernet intégré
     if adapter == 0:
@@ -41,7 +35,7 @@ def extract_drawings(gns3_data):
     """
     Extrait les rectangles de dessins du projet GNS3.
     Retourne une liste de dictionnaires avec: x, y, width, height, color, protocol, as_number
-    Assigne les numéros d'AS croissants: 100, 200, 300... (sauf pour eBGP)
+    Assigne les numéros d'AS croissants: 100, 200, 300...
     """
     drawings = gns3_data.get("topology", {}).get("drawings", [])
     rectangles = []
@@ -58,6 +52,7 @@ def extract_drawings(gns3_data):
         # Supporte minuscules et majuscules pour le code hexadécimal
         color_match = re.search(r'stroke="#([0-9a-fA-F]+)"', svg)
         if not color_match:
+            # Si l'utilisateur a rempli le rectangle au lieu de la bordure
             color_match = re.search(r'fill="#([0-9a-fA-F]+)"', svg)
         
         if width_match and height_match:
@@ -75,20 +70,15 @@ def extract_drawings(gns3_data):
                 "protocol": protocol
             }
             
-            # Assigner un AS seulement si ce n'est pas eBGP
-            if protocol != "eBGP":
-                rect["as_number"] = as_counter
-                as_counter += 100
-            else:
-                rect["as_number"] = None
-                rect["ebgp"] = True
-            
+            rect["as_number"] = as_counter
+            as_counter += 100
+
             rectangles.append(rect)
     
     return rectangles
 
 
-def point_in_rectangle(px, py, rect):
+def is_point_in_rectangle(px, py, rect):
     """
     Vérifie si un point (px, py) est dans un rectangle.
     Les routeurs sont considérés comme des points.
@@ -117,7 +107,7 @@ def assign_routers_to_as(nodes_data, rectangles):
         x, y = node["x"], node["y"]
         
         # Trouver les rectangles contenant ce routeur
-        containing_rects = [r for r in rectangles if point_in_rectangle(x, y, r)]
+        containing_rects = [r for r in rectangles if is_point_in_rectangle(x, y, r)]
         
         # Valeurs par défaut
         protocol = "UNKNOWN"
