@@ -278,28 +278,53 @@ def get_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_name=
         as_b = int(info_b['as_number']) if info_b and info_b.get('as_number') else 0
 
         # Cas 1 : Intra-AS (Même AS et AS != 0)
+        # Format attendu : 2000:1:AS:ID1:ID2::X/80
+        # 2000:1::/64 -> base_parts = "2000:1"
+        # base_parts (2 blocs) + AS (1 bloc) + ID1 (1 bloc) + ID2 (1 bloc) = 5 blocs
+        # Reste 3 blocs pour l'hôte.
         if as_a == as_b and as_a != 0:
             low_id, high_id = sorted((id_a_int, id_b_int))
-            # Format: Prefix : AS : ID1 : ID2 :: ID_Local
-            # Note: On utilise l'écriture décimale brute dans le champ hexadécimal pour la lisibilité
-            # ex: AS=100 -> "...:100:..." (qui vaut techniquement 0x100 = 256, mais lisible par l'humain comme 100)
+            # Construction propre sans double "::"
             subnet_prefix_str = f"{base_parts}:{as_a}:{low_id}:{high_id}::"
+            subnet_prefix_no_colons = f"{base_parts}:{as_a}:{low_id}:{high_id}:0:0:0"
             subnet_cidr = f"{subnet_prefix_str}/80"
             
-            ip_a_str = f"{subnet_prefix_str}{id_a_int}"
-            ip_b_str = f"{subnet_prefix_str}{id_b_int}"
+            # On utilise ipaddress pour faire l'addition propre
+            net = ipaddress.IPv6Network(f"{base_parts}:{as_a}:{low_id}:{high_id}::/80", strict=False)
+            ip_a_str = str(net.network_address + id_a_int)
+            ip_b_str = str(net.network_address + id_b_int)
             prefix_len = 80
 
         else:
+            # Cas 2 : Inter-AS
+            # Format attendu : 2000:1:0:AS1:AS2:ID1:ID2:X/112
+            # base_parts (2 blocs) + 0 (1 bloc) + AS1 (1 bloc) + AS2 (1 bloc) + ID1 (1 bloc) + ID2 (1 bloc) = 7 blocs 
+            # Il ne reste que 1 bloc pour l'hôte. (Total 8 blocs)
+            # DANGER: Si base_parts a déjà "::", il faut faire attention.
+            # Supposons base_parts = "2000:1".
+            
             low_as, high_as = sorted((as_a, as_b))
             low_id, high_id = sorted((id_a_int, id_b_int))
             
-            # Format: Prefix : 0 : AS1 : AS2 : ID1 : ID2 :: ID_Local
-            subnet_prefix_str = f"{base_parts}:0:{low_as}:{high_as}:{low_id}:{high_id}::"
-            subnet_cidr = f"{subnet_prefix_str}/112"
+            # On construit explicitement les 7 premiers blocs
+            # 2000:1:0:AS1:AS2:ID1:ID2:0
+            subnet_str = f"{base_parts}:0:{low_as}:{high_as}:{low_id}:{high_id}:0"
             
-            ip_a_str = f"{subnet_prefix_str}{id_a_int}"
-            ip_b_str = f"{subnet_prefix_str}{id_b_int}"
+            try:
+                # On valide que c'est une IP correcte
+                base_ip_int = int(ipaddress.IPv6Address(subnet_str))
+                ip_a_str = str(ipaddress.IPv6Address(base_ip_int + id_a_int))
+                ip_b_str = str(ipaddress.IPv6Address(base_ip_int + id_b_int))
+                
+                # Pour le CIDR d'affichage qui finit par :: (optionnel mais propre)
+                subnet_cidr = f"{base_parts}:0:{low_as}:{high_as}:{low_id}:{high_id}::/112"
+            except Exception as e:
+                print(f"Erreur génération IP Inter-AS: {e}")
+                # Fallback simple
+                ip_a_str = f"2001:FFFF:{low_as}:{high_as}::{id_a_int}"
+                ip_b_str = f"2001:FFFF:{low_as}:{high_as}::{id_b_int}"
+                subnet_cidr = f"2001:FFFF:{low_as}:{high_as}::/64"
+            
             prefix_len = 112
 
         # Configuration pour le routeur A
