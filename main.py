@@ -237,7 +237,7 @@ def main_gui():
     lf_addr = ttk.LabelFrame(config_win, text="1. Adressage IPv6", padding=10)
     lf_addr.pack(fill="x", padx=10, pady=10)
     
-    ttk.Label(lf_addr, text="Préfixe des adresses physiques (ex: 2000:1::/64)\n Format prévu intra-AS : 2000:1:<AS>:<ID1>:<ID2>::<ID_local>/80\n Format prévu inter-AS : 2000:1:<AS1>:<AS2>:<ID1>:<ID2>::<ID_local>/112").pack(anchor="w")
+    ttk.Label(lf_addr, text="Préfixe des adresses physiques (ex: 2000:1::/64)\n Format prévu intra-AS : 2000:1:<AS>:<ID1>:<ID2>::<ID_local>/80\n Format prévu inter-AS : 2000:1:0:<AS1>:<AS2>:<ID1>:<ID2>::<ID_local>/112").pack(anchor="w")
     entry_ip = ttk.Entry(lf_addr)
     entry_ip.insert(0, "2000:1::/64")
     entry_ip.pack(fill="x", pady=5)
