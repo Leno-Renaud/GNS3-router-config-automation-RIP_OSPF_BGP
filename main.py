@@ -20,12 +20,10 @@ from gen_config_bgp_ospf.bgp_ospf_gen import generate_bgp_configs as gen_ospf
 from injection_cfgs.injection_cfgs import injection_cfg
 
 
-def run_automation(gns3_file_path, ip_prefix, loopback_format="simple", advanced_options=None):
+def run_automation(gns3_file_path, ip_prefix, loopback_format="simple", advanced_options={}):
     """
     Exécute la logique d'automatisation avec les paramètres fournis.
     """
-    if advanced_options is None:
-        advanced_options = {}
 
     gns3_file = Path(gns3_file_path)
     project_dir = gns3_file.parent
@@ -195,7 +193,7 @@ def main_gui():
     ROOT_DIR = Path(__file__).parent.absolute()
     
     # On lance une extraction pour récupérer la liste des AS et on sauvegarde
-    # directement dans topology.json à la racine (plus propre, évite les fichiers tmp perdus)
+    # directement dans topology.json à la racine
     try:
         topo_preview = get_topology(
             file_path, ip_base="2000:1::/64", output_dir=ROOT_DIR, output_name="topology.json"
@@ -270,7 +268,7 @@ def main_gui():
         # Ici on utilise grab_set (modal) donc le bouton sera de toute façon inactif tant que la fenêtre est ouverte.
         
         rel_win = tk.Toplevel(config_win)
-        rel_win.title("Relations BGP (Gao-Rexford)")
+        rel_win.title("Relations BGP")
         rel_win.geometry("600x450")
         
         # Rendre la fenêtre modale (bloque la fenêtre parent) et au premier plan
@@ -287,9 +285,24 @@ def main_gui():
         # Details Routers
         frame_list = ttk.Frame(lf_info)
         frame_list.pack(fill="x", pady=2)
-        # Use a simple text widget or label to show router mapping if not too long
-        lbl_r_map = tk.Label(frame_list, text=" | ".join(router_as_map[:5]) + ("..." if len(router_as_map)>5 else ""), font=("Arial", 8), fg="gray")
-        lbl_r_map.pack(anchor="w")
+
+        # Regroupement par AS pour affichage clair
+        as_groups = {}
+        if 'topo_preview' in locals() and topo_preview:
+             for r in topo_preview.get("routers", []):
+                asn = str(r.get("as_number", ""))
+                if asn:
+                    as_groups.setdefault(asn, []).append(r["name"])
+        
+        display_lines = []
+        for asn in sorted(as_groups.keys(), key=lambda x: int(x) if x.isdigit() else 999999):
+            routers_str = ", ".join(sorted(as_groups[asn]))
+            display_lines.append(f"- AS {asn} : {routers_str}")
+
+        full_text = "\n".join(display_lines) if display_lines else "Aucun routeur détecté."
+
+        lbl_r_map = tk.Label(frame_list, text=full_text, font=("Consolas", 9), justify="left", fg="#333333")
+        lbl_r_map.pack(anchor="w", padx=5)
 
         ttk.Label(rel_win, text="Définissez les relations (A vers B)", font=("Arial", 10, "bold")).pack(pady=10)
         
