@@ -267,12 +267,12 @@ def get_topology(gns3_file, ip_base="2000:1::/64", output_dir=None, output_name=
         as_a = int(info_a['as_number']) if info_a and info_a.get('as_number') else 0
         as_b = int(info_b['as_number']) if info_b and info_b.get('as_number') else 0
 
-        # Cas 1 : Intra-AS (Même AS et AS != 0)
-        # Format attendu : 2000:1:AS:ID1:ID2::X/80
-        # 2000:1::/64 -> base_parts = "2000:1"
-        # base_parts (2 blocs) + AS (1 bloc) + ID1 (1 bloc) + ID2 (1 bloc) = 5 blocs
-        # Reste 3 blocs pour l'hôte.
         if as_a == as_b and as_a != 0:
+            # Cas 1 : Intra-AS (Même AS et AS != 0)
+            # Format attendu : 2000:1:AS:ID1:ID2::X/80
+            # 2000:1::/64 -> base_parts = "2000:1"
+            # base_parts (2 blocs) + AS (1 bloc) + ID1 (1 bloc) + ID2 (1 bloc) = 5 blocs
+            # Reste 3 blocs pour l'hôte.
             low_id, high_id = sorted((id_a_int, id_b_int))
             # Construction propre sans double "::"
             subnet_prefix_str = f"{base_parts}:{as_a}:{low_id}:{high_id}::"
