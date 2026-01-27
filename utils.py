@@ -38,8 +38,7 @@ def get_loopback_ip(router_name, fmt="simple", as_number=None):
     Generates an IPv6 Loopback address based on the selected format.
     Formats:
       - 'simple': 2000::{ID}
-      - 'with_as': 2000:0:0:{AS}::{ID} (Standardized) or 2000:{AS}::{ID}
-      - 'full': 2000:1:{AS}::{ID}
+      - 'with_as': 2000:2:{AS}::{ID}
     """
     num = get_router_number(router_name)
     
@@ -57,15 +56,5 @@ def get_loopback_ip(router_name, fmt="simple", as_number=None):
                 return f"2000::2:{num}" # Fallback
         else:
             return f"2000::2:{num}"
-            
-    elif fmt == "full":
-        # Format: 2000:1:AS::ID
-        if as_number:
-            try:
-                return f"2000:1:{as_number}::{num}"
-            except ValueError:
-                return f"2000:1::{num}"
-        else:
-             return f"2000:1::{num}"
     
     return f"2000::{num}"
