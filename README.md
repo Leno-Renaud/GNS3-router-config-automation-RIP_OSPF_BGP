@@ -1,4 +1,4 @@
-##README
+Projet GNS3 : ERNOULT Hector, RENAUD Leno, BONNIER Théodore, GRUFFAZ Jules
 
 Ce projet est basé sur plusieurs scripts python ainsi que des templates jinja2.
 Son objectif est d'automatiser la configuration de routeurs cisco c7200 dans un projet GNS3.
