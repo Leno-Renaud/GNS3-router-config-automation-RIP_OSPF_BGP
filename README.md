@@ -11,8 +11,7 @@ Celle-ci vous présentera un bref tutoriel d'utilisation, ce README va donc serv
 -> L'injection des configurations est automatisée via un système graphique : en utilisant le système de dessin de rectangles de GNS3, dessinez (en arrière plan, derrière vos routeurs) des rectangles encadrant vos
 différentes AS. Un rectangle rouge pour RIP, un vert pour OSPF. A noter que le rectangle doit être 'purement' de la couleur voulue (exemple : RGB = 255, 0, 0) afin que le programme fonctionne.
 
--> Suite à des tests, il est à noter que la fonction de communities Gao-Rexford du programme est instable, et ne devra pas être utilisée si vous attendez un taux de réussite de 100%. 
-Si cette case n'est pas cochée dans l'interface, le programme fonctionne parfaitement.
+-> Il est à noter que la fonction de communities Gao-Rexford du programme est expérimentale, et n'a pas été testée aussi extensivement que les autres features.
 
 -> Notre programme propose une implémentation de métriques OSPF. Il est à noter qu'il est possible d'imposer une métrique OSPF à un lien entre deux routeurs RIP dans l'interface graphique.
 Cependant, cela n'aura aucun effet sur les configurations finales.
