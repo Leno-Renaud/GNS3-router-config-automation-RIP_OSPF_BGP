@@ -1,6 +1,6 @@
 # GNS3 Routing Configuration Automation
 
-Portfolio project developed by **Hector Ernoult, Leno Renaud, Théodore Bonnier, Jules Gruffaz**.
+Portfolio project developed by **Leno Renaud, Hector Ernoult, Théodore Bonnier, Jules Gruffaz**.
 
 This project automates Cisco c7200 router configuration inside a GNS3 topology using Python scripts and Jinja2 templates.  
 It provides a GUI workflow that helps generate and inject routing configurations (RIP / OSPF / BGP) into a complete lab architecture.
