@@ -65,7 +65,7 @@ assets/                         # README screenshots
 
 ---
 
-## Setup & Configuration (English)
+## Setup & Configuration
 
 ### 1) Prerequisites
 
